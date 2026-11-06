@@ -1,0 +1,54 @@
+<Project>
+  <!-- Shared MSBuild settings for every shippable Runax.Http library under src/.
+       Chain in a future repo-root Directory.Build.props if one is ever added. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))"
+          Condition="Exists('$([MSBuild]::GetPathOfFileAbove(`Directory.Build.props`, `$(MSBuildThisFileDirectory)../`))')" />
+
+  <PropertyGroup Label="Compilation">
+    <!-- Every shippable library targets the supported .NET versions. net8.0 is the floor
+         (the oldest LTS still in support); net9.0 and net10.0 get their own assemblies so
+         each runtime binds to its own in-box types instead of package downgrades.
+         The source generator overrides this: it must be netstandard2.0 to load in Roslyn. -->
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- CS1591: XML docs are generated, but missing member docs shouldn't fail the build.
+         CA1848/CA1873: high-performance LoggerMessage delegates are not required here. -->
+    <NoWarn>$(NoWarn);CS1591;CA1848;CA1873</NoWarn>
+    <!-- Marks every library trimmable and runs the trim/AOT analyzers on it (see docs/aot.md). -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Packaging">
+    <IsPackable>true</IsPackable>
+    <PackageId>$(MSBuildProjectName)</PackageId>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageReadmeFile Condition="Exists('README.md')">README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Authors>Runax Software</Authors>
+    <Company>Runax Software</Company>
+    <Product>Runax.Http</Product>
+    <PackageTags>http;rest;http-client;rest-client;source-generator;refit;runax</PackageTags>
+    <PackageProjectUrl>https://github.com/runax-software/runax-http</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/runax-software/runax-http</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <PropertyGroup Label="SourceLink / reproducible builds">
+    <!-- SourceLink ships in the .NET SDK (8.0+), so no package reference is needed. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!-- Pack the per-package README when a project provides one. -->
+  <ItemGroup Condition="Exists('README.md')">
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

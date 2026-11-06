@@ -1,0 +1,55 @@
+<Project>
+  <!-- Central Package Management (CPM): every NuGet version is declared ONCE here.
+       MSBuild finds this file by walking up the tree, so it governs both src/ and
+       tests/. Individual .csproj files (and the Directory.Build.props files) reference
+       packages WITHOUT a Version attribute; the version is resolved from below. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <!-- Core / shared abstractions used by Runax.Http and every transport.
+       One version for all target frameworks, not a lower floor per TFM: a lower floor only
+       produces NU1109 downgrade errors once a transport SDK pulls a newer Microsoft.Extensions.*
+       from its own net8.0 assets. The packages are netstandard2.0/net8.0-compatible, so they
+       load on .NET 8 regardless. -->
+  <ItemGroup Label="Core">
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.10" />
+  </ItemGroup>
+
+  <!-- Roslyn, for the source generator that turns an annotated interface into a client.
+       Deliberately NOT the latest (5.x): a generator can only load in a compiler at least as
+       new as the Roslyn it was built against, and net8.0 consumers run the 8.0 SDK's Roslyn 4.8.
+       Raising this floor drops support for every SDK older than the version chosen. -->
+  <ItemGroup Label="Source generator">
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0" />
+  </ItemGroup>
+
+  <!-- Transport implementations, each in its own Runax.Http.Transports.<Name> library.
+       The HttpClient transport needs nothing here: it ships in Runax.Http against the BCL. -->
+  <ItemGroup Label="Transports">
+    <PackageVersion Include="RestSharp" Version="114.1.0" />
+  </ItemGroup>
+
+  <!-- Test-only. Runner is Microsoft.Testing.Platform (see global.json) + xUnit v3. -->
+  <ItemGroup Label="Tests">
+    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.9.0" />
+    <PackageVersion Include="NSubstitute" Version="6.2.0" />
+    <PackageVersion Include="Shouldly" Version="4.3.0" />
+    <!-- Concrete DI container, logging, and Generic Host, used to exercise registration
+         and the generated clients end-to-end in tests. -->
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing" Version="10.8.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+  </ItemGroup>
+</Project>

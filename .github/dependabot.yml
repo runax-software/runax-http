@@ -1,0 +1,46 @@
+version: 2
+updates:
+  # .NET dependencies. Versions are centrally managed in Directory.Packages.props.
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    labels:
+      - chore
+    assignees:
+      - Katyara11
+    commit-message:
+      prefix: build
+    groups:
+      microsoft-extensions:
+        patterns:
+          - "Microsoft.Extensions.*"
+      test:
+        patterns:
+          - "xunit*"
+          - "Microsoft.Testing.*"
+          - "NSubstitute"
+          - "Shouldly"
+    ignore:
+      # Roslyn is pinned deliberately, not lagging. The source generator can only load in a
+      # compiler at least as new as the Roslyn it was built against, so a bump here silently
+      # drops support for older SDKs (today: the .NET 8 SDK's Roslyn 4.8). Raise it by hand,
+      # as a decision about the supported SDK floor.
+      - dependency-name: "Microsoft.CodeAnalysis.CSharp"
+
+  # Actions used by the workflows and the composite build action.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    labels:
+      - chore
+    assignees:
+      - Katyara11
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns:
+          - "*"

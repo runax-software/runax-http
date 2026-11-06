@@ -1,0 +1,52 @@
+<Project>
+  <!-- Shared MSBuild settings for every test project under tests/.
+       Chain in a future repo-root Directory.Build.props if one is ever added. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))"
+          Condition="Exists('$([MSBuild]::GetPathOfFileAbove(`Directory.Build.props`, `$(MSBuildThisFileDirectory)../`))')" />
+
+  <PropertyGroup Label="Compilation">
+    <!-- Mirrors the target frameworks of the libraries under src/, so every supported
+         runtime is actually exercised and not just compiled against. -->
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- xUnit1051: tests manage their own cancellation/timeouts rather than the ambient test token. -->
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Test host">
+    <!-- xUnit v3 test projects run as a standalone executable under MTP. -->
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Run tests through Microsoft.Testing.Platform (selected in global.json) rather
+         than VSTest. xUnit v3 is MTP-native, so Microsoft.NET.Test.Sdk is NOT used. -->
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <ItemGroup Label="Test framework (xUnit v3 on Microsoft.Testing.Platform)">
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Shouldly" />
+    <!-- Coverage is opt-in: add Microsoft.Testing.Extensions.CodeCoverage at a version
+         built against the Microsoft.Testing.Platform that xunit.v3 bundles, otherwise
+         it fails at run time with a TypeLoadException on IDataConsumer. -->
+  </ItemGroup>
+
+  <!-- Shouldly's net8.0 asset has no dictionary assertions for IReadOnlyDictionary, which is how
+       response headers are exposed. tests/Compat stands in for them so the assertions read the same
+       on every target framework; see the files there for details. -->
+  <ItemGroup Label="net8.0 compatibility" Condition="'$(TargetFramework)' == 'net8.0'">
+    <Compile Include="$(MSBuildThisFileDirectory)Compat/*.net8.cs"
+             Link="Compat/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup Label="Convenience global usings">
+    <Using Include="Xunit" />
+    <Using Include="Shouldly" />
+    <Using Include="NSubstitute" />
+  </ItemGroup>
+</Project>

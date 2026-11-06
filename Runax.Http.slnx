@@ -1,0 +1,12 @@
+<Solution>
+  <!-- Projects are added here as they land; see ROADMAP.md for the order.
+       Shippable libraries go at the root, test projects under the Tests folder:
+
+         <Folder Name="/Tests/">
+           <Project Path="tests\Runax.Http.Tests\Runax.Http.Tests.csproj" Type="Classic C#" />
+         </Folder>
+         <Project Path="src\Runax.Http.Abstractions\Runax.Http.Abstractions.csproj" Type="Classic C#" />
+
+       The publish workflow packs this solution, so a shippable library missing from here
+       does not get published. -->
+</Solution>

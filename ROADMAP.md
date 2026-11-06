@@ -12,9 +12,10 @@ effort. Nothing here is a commitment to a date.
 
 ## Milestone 1 — The core loop
 
-- [ ] **`Runax.Http.Abstractions`** — the request attributes (`[Get]`/`[Post]`/…, `[Query]`,
+- [x] **`Runax.Http.Abstractions`** — the request attributes (`[Get]`/`[Post]`/…, `[Query]`,
   `[Path]`, `[Body]`, `[Header]`) and the transport-neutral contracts (`IHttpTransport`,
-  request/response models, `IContentSerializer`, the unified exception type).
+  request/response models, `RequestContent`, `TransportCapabilities`, `IContentSerializer`, the
+  unified exception types, `ApiResponse<T>`). Zero package dependencies.
 - [ ] **Source generator** — annotated interface in, implementation out. Incremental, cached
   per interface, emitting no reflection. Targets Roslyn 4.8 so the .NET 8 SDK can load it.
 - [ ] **Generator diagnostics** — every binding mistake is a build error with a code and a
@@ -54,10 +55,11 @@ effort. Nothing here is a commitment to a date.
 
 ## Backlog
 
-- [ ] **More transports** — Flurl, and a Leaf.xNet-style transport for the
-  scraping/anti-bot cases that motivated the swappable design. Leaf.xNet is sync-only and
-  effectively unmaintained, so it will be sync-over-async and won't honour a
-  `CancellationToken` mid-flight; that needs documenting as a wart rather than hiding.
+- [ ] **More transports** — Flurl, and a transport over one of the lower-level HTTP stacks
+  that offer finer cookie, proxy and TLS control than `HttpClient` does. Several of those are
+  synchronous and no longer maintained, which means sync-over-async and no mid-flight
+  `CancellationToken` support; where that's the case it gets documented as a wart of that
+  transport rather than smoothed over.
 - [ ] **OpenAPI to interface** — generate the annotated interface from an OpenAPI document,
   so the hand-written interface is a starting point rather than the only option.
 - [ ] **Polly integration** — resilience policies as pipeline middleware.

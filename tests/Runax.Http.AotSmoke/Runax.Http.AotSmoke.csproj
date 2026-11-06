@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Native AOT smoke test for the shippable libraries. `dotnet publish` compiles every package (and its
+       dependencies) with the AOT compiler; any trim or AOT warning fails the publish. Running the published
+       binary then exercises the surface for real, so a warning-free publish that still breaks under AOT
+       is caught too. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>true</IsPublishable>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Report each trim warning inside a dependency instead of one IL2104 per assembly. -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+  </PropertyGroup>
+
+  <!-- PublishAot resolves Microsoft.DotNet.ILCompiler at the version implied by the installed SDK band,
+       and that version trails the serviced one (the 10.0.100 band gives 10.0.3; CVE-2026-111497, a Brotli
+       decoder out-of-bounds write, is fixed in 10.0.14). NuGet audit raises NU1903 and TreatWarningsAsErrors
+       fails the build on it.
+
+       Pinning it with an explicit PackageReference does not work: ILCompiler's own targets warn that the
+       reference causes versioning problems and the publish then fails on a missing PrivateSdkAssemblies
+       ItemGroup. The actual fix is a newer SDK, which is what CI installs (`10.0.x` resolves the latest
+       patch) and what a developer gets by updating.
+
+       So the advisory is suppressed by id, for this project only. ILCompiler is a build-time toolchain for
+       a test binary that is never shipped and never parses untrusted input, and the suppression is narrow
+       enough that any other advisory here still fails the build. Remove it once the SDK band ships 10.0.14
+       or later. -->
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-p3jp-9v83-76w9" />
+  </ItemGroup>
+
+  <!-- Every shippable package. Add each new one here as it lands, or it goes unverified. -->
+  <ItemGroup>
+    <ProjectReference Include="../../src/Runax.Http.Abstractions/Runax.Http.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

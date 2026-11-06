@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Attributes and transport-neutral contracts for Runax.Http. Reference this from client interfaces and from transport implementations — it depends on no HTTP library and no DI container.</Description>
+  </PropertyGroup>
+
+  <!-- No PackageReference, deliberately. This package is what a transport author and an
+       application both reference, so anything added here is a dependency everyone inherits.
+       It targets the BCL only; keep it that way. -->
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Runax.Http" />
+    <InternalsVisibleTo Include="Runax.Http.Abstractions.Tests" />
+  </ItemGroup>
+</Project>

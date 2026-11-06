@@ -36,9 +36,11 @@
          it fails at run time with a TypeLoadException on IDataConsumer. -->
   </ItemGroup>
 
-  <!-- Shouldly's net8.0 asset has no dictionary assertions for IReadOnlyDictionary, which is how
-       response headers are exposed. tests/Compat stands in for them so the assertions read the same
-       on every target framework; see the files there for details. -->
+  <!-- Hook for net8.0-only shims. Some assertion and BCL APIs the tests use are missing from
+       Shouldly's and the framework's net8.0 assets, and a shim in tests/Compat lets the assertions
+       read the same on every target framework instead of being bracketed in #if. Files matching
+       *.net8.cs there are compiled into every test project for net8.0 alone. Currently empty —
+       nothing has needed one yet, and the glob is a no-op until something does. -->
   <ItemGroup Label="net8.0 compatibility" Condition="'$(TargetFramework)' == 'net8.0'">
     <Compile Include="$(MSBuildThisFileDirectory)Compat/*.net8.cs"
              Link="Compat/%(Filename)%(Extension)" />

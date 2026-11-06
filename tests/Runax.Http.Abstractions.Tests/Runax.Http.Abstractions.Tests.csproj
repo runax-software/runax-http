@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../src/Runax.Http.Abstractions/Runax.Http.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

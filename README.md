@@ -13,16 +13,25 @@ You describe the API as a C# interface:
 
 ```csharp
 [BaseAddress("https://api.example.com")]
-public interface IProxiesClient
+public interface IRepositoryClient
 {
-    [Get("/proxies")]
-    Task<PagedResponse<Proxy>> ListAsync(
-        [Query] int page = 1,
-        [Query] int limit = 100,
+    [Get("/repos/{owner}/{name}")]
+    Task<Repository> GetAsync([Path] string owner, [Path] string name, CancellationToken ct = default);
+
+    [Get("/repos/{owner}/{name}/issues")]
+    Task<IReadOnlyList<Issue>> ListIssuesAsync(
+        [Path] string owner,
+        [Path] string name,
+        [Query] string state = "open",
+        [Query] int perPage = 30,
         CancellationToken ct = default);
 
-    [Post("/proxies/{id}/reserve")]
-    Task<ReserveResult> ReserveAsync([Path] Guid id, [Body] ReserveRequest body, CancellationToken ct = default);
+    [Post("/repos/{owner}/{name}/issues")]
+    Task<Issue> CreateIssueAsync(
+        [Path] string owner,
+        [Path] string name,
+        [Body] NewIssue issue,
+        CancellationToken ct = default);
 }
 ```
 
@@ -33,21 +42,21 @@ parameters, an unregistered transport name) are build errors, not 3am production
 ## What makes it different
 
 Existing declarative HTTP client libraries bind you to one HTTP stack. Runax.Http treats the
-HTTP library as a transport, the same way [Runax.Messaging](https://github.com/runax-software/runax-messaging)
-treats a broker:
+HTTP library as a transport, the way a messaging library treats a broker:
 
 ```csharp
 // Pick a default at registration
-services.AddHttpClientContract<IProxiesClient>()
+services.AddHttpClientContract<IRepositoryClient>()
         .UseTransport("restsharp");
 
 // Or per instance
-var client = factory.Create<IProxiesClient>("httpclient");
+var client = factory.Create<IRepositoryClient>("httpclient");
 ```
 
-This matters when the same API has to be reached two different ways — a plain `HttpClient` in
-your service, something with heavier cookie, TLS-fingerprint and proxy control when you're
-talking to an endpoint that doesn't want to be talked to.
+This matters when the same interface has to be reached two different ways: a plain `HttpClient`
+in your service, and something with heavier cookie, proxy or TLS control for an endpoint that
+doesn't want to be talked to. Today that means two clients and two sets of models. Here it
+means one interface and a different transport name.
 
 The generated code never references a specific HTTP library. It builds a transport-neutral
 request and hands it to `IHttpTransport`. Serialization, retries, logging and auth all sit

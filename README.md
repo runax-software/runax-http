@@ -54,12 +54,13 @@ HTTP library as a transport, the way a messaging library treats a broker:
 ```csharp
 services.AddRunaxHttp().UseSystemTextJson();
 
-// Pick a transport at registration
+// Pick a transport at registration. Each transport package exposes its own name
+// as a constant, so the set stays open to anyone without a central registry.
 services.AddRunaxClient<IRepositoryClient>()
-        .UseTransport("restsharp");
+        .UseTransport(RestSharpTransport.TransportName);
 
 // Or per call, without changing a single method signature
-using (TransportScope.Use("httpclient"))
+using (TransportScope.Use(HttpClientTransport.TransportName))
     await client.GetAsync(owner, name);
 ```
 

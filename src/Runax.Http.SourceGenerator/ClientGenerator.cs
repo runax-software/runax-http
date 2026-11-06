@@ -115,6 +115,15 @@ public sealed class ClientGenerator : IIncrementalGenerator
         if (methods.Count == 0)
             return new AnalysisResult(null, null, diagnostics.ToImmutable());
 
+        var declaredTransports = ImmutableArray.CreateBuilder<string>();
+        var seenTransports = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var name in methods.Select(method => method.TransportName).Prepend(transportName))
+        {
+            if (name is not null && seenTransports.Add(name))
+                declaredTransports.Add(name);
+        }
+
         var model = new ClientModel(
             contract.Name,
             contract.ToDisplayString(QualifiedWithNullability),
@@ -125,6 +134,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
             baseAddress,
             transportName,
             defaultHeaders,
+            declaredTransports.ToImmutable(),
             methods.ToImmutable());
 
         return new AnalysisResult(model, $"{contract.Name}.RunaxClient.g.cs", diagnostics.ToImmutable());

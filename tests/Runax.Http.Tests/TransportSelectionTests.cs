@@ -19,6 +19,7 @@ public class TransportSelectionTests
 {
     private sealed record Fixture(
         IRepositoryClient Client,
+        ITrafficClient Traffic,
         RecordingTransport Declared,
         RecordingTransport Registered,
         RecordingTransport Scoped);
@@ -27,7 +28,9 @@ public class TransportSelectionTests
     /// Three transports, one per level of precedence, so which one received the request is the
     /// assertion.
     /// </summary>
-    private static Fixture Build(Action<IRunaxClientBuilder<IRepositoryClient>>? configure = null)
+    private static Fixture Build(
+        Action<IRunaxClientBuilder<IRepositoryClient>>? configure = null,
+        Action<IRunaxClientBuilder<ITrafficClient>>? configure2 = null)
     {
         var declared = new RecordingTransport("declared", respond: _ => Responses.Json(Body));
         var registered = new RecordingTransport("registered", respond: _ => Responses.Json(Body));
@@ -48,10 +51,17 @@ public class TransportSelectionTests
         var client = services.AddRunaxClient<IRepositoryClient>();
         configure?.Invoke(client);
 
+        var traffic = services.AddRunaxClient<ITrafficClient>();
+        configure2?.Invoke(traffic);
+
         var provider = services.BuildServiceProvider();
 
         return new Fixture(
-            provider.GetRequiredService<IRepositoryClient>(), declared, registered, scoped);
+            provider.GetRequiredService<IRepositoryClient>(),
+            provider.GetRequiredService<ITrafficClient>(),
+            declared,
+            registered,
+            scoped);
     }
 
     private const string Body = """{"name":"n","stars":0}""";
@@ -61,7 +71,7 @@ public class TransportSelectionTests
     {
         var fixture = Build();
 
-        await fixture.Client.GetTrafficAsync("owner", "name");
+        await fixture.Traffic.GetTrafficAsync("owner", "name");
 
         fixture.Declared.Requests.Count.ShouldBe(1);
     }
@@ -69,9 +79,9 @@ public class TransportSelectionTests
     [Fact]
     public async Task Registration_overrides_what_the_source_declared()
     {
-        var fixture = Build(client => client.UseTransport("registered"));
+        var fixture = Build(configure2: client => client.UseTransport("registered"));
 
-        await fixture.Client.GetTrafficAsync("owner", "name");
+        await fixture.Traffic.GetTrafficAsync("owner", "name");
 
         // GetTrafficAsync carries [Transport("declared")], and it lost. Whoever deploys the
         // application knows things the interface author did not.
@@ -82,10 +92,10 @@ public class TransportSelectionTests
     [Fact]
     public async Task A_scope_overrides_registration()
     {
-        var fixture = Build(client => client.UseTransport("registered"));
+        var fixture = Build(configure2: client => client.UseTransport("registered"));
 
         using (TransportScope.Use("scoped"))
-            await fixture.Client.GetTrafficAsync("owner", "name");
+            await fixture.Traffic.GetTrafficAsync("owner", "name");
 
         fixture.Scoped.Requests.Count.ShouldBe(1);
         fixture.Registered.Requests.ShouldBeEmpty();

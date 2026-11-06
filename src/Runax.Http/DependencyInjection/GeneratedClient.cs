@@ -28,4 +28,16 @@ public sealed class GeneratedClient
 
     /// <summary>Constant headers from interface-level <see cref="HeaderAttribute"/>s.</summary>
     public IReadOnlyList<KeyValuePair<string, string>> DefaultHeaders { get; init; } = [];
+
+    /// <summary>
+    /// Every distinct transport name this interface mentions, from <see cref="TransportAttribute"/>
+    /// on the interface and on any of its methods.
+    /// </summary>
+    /// <remarks>
+    /// Collected so a misspelled name can be caught when the transports are first resolved, rather
+    /// than on the first call to the one method that carries it. A method-level
+    /// <c>[Transport("restsharpp")]</c> on a rarely used method is otherwise the worst case: a
+    /// typo that lies dormant until exactly the wrong moment.
+    /// </remarks>
+    public IReadOnlyList<string> DeclaredTransportNames { get; init; } = [];
 }

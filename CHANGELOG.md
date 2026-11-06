@@ -30,6 +30,18 @@ All packages in the repository are versioned together.
     `UseTransport(...)` at registration, which beats `[Transport]` in the source, which beats the
     only registered transport. Asking for a name nothing is registered under lists the ones that
     are, since that is almost always a typo or a missing transport package.
+  - **Transport names are strings, exposed per transport as a constant** —
+    `HttpClientTransport.TransportName` — rather than an enum. An enum would have to live in
+    `Runax.Http.Abstractions`, so no transport package could name itself without a release of the
+    one package every transport already references. A type parameter would not work either: a
+    transport's identity is its registration, and several of one type can be registered under
+    different names with different handlers or proxies.
+  - **Configured transport names are validated when transports first resolve**, not on the request
+    that asks for them. A misspelled `UseTransport(...)` or `[Transport(...)]` — including on a
+    method, where a typo could otherwise lie dormant until that one method ran — fails naming the
+    client and listing what is registered. Overriding a declared name at registration suppresses
+    the check, which is the escape hatch for a consumer who does not want the transport an
+    interface asks for.
   - **`AddRunaxHttp()` and `AddRunaxClient<T>()`**, with per-client base address, transport,
     timeout, default headers and serializer. Client lookup goes through a registry that generated
     code populates from a module initializer, so registration needs no assembly scanning and works

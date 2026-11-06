@@ -48,9 +48,21 @@ public static class RunaxHttpServiceCollectionExtensions
         }
 
         services.TryAddSingleton<IHttpTransportResolver>(provider =>
-            new HttpTransportResolver(
+        {
+            var settings = provider.GetRequiredService<RunaxHttpDefaults>();
+
+            var resolver = new HttpTransportResolver(
                 provider.GetServices<IHttpTransport>(),
-                provider.GetRequiredService<RunaxHttpDefaults>().DefaultTransportName));
+                settings.DefaultTransportName);
+
+            // Checked here because this is the first moment the full picture exists: every
+            // client registered, every transport package added, every UseTransport(...) applied.
+            // Without it, a misspelled name waits until a request actually asks for it — and for a
+            // method-level [Transport] on a rarely used method, that can be a long wait.
+            ValidateConfiguredTransports(settings, resolver);
+
+            return resolver;
+        });
 
         return new RunaxHttpBuilder(services, defaults);
     }
@@ -121,6 +133,9 @@ public static class RunaxHttpServiceCollectionExtensions
         // this method returns, and the executor still sees the final state at resolution time.
         services.AddSingleton(new RunaxClientRegistration<TContract>(options));
 
+        GetOrAddDefaults(services, out _).Clients.Add(
+            new RegisteredClient(contract, options, generated!.DeclaredTransportNames));
+
         services.TryAddSingleton(provider =>
         {
             var registration = provider.GetRequiredService<RunaxClientRegistration<TContract>>();
@@ -143,6 +158,61 @@ public static class RunaxHttpServiceCollectionExtensions
 
         return new RunaxClientBuilder<TContract>(services, options);
     }
+
+    /// <summary>
+    /// Fails if a client asks for a transport nothing is registered under.
+    /// </summary>
+    /// <remarks>
+    /// The message names the client, because "no transport named 'restsharpp'" on its own leaves
+    /// you grepping for the typo across every registration in the application.
+    /// </remarks>
+    private static void ValidateConfiguredTransports(
+        RunaxHttpDefaults settings,
+        HttpTransportResolver resolver)
+    {
+        foreach (var client in settings.Clients)
+        {
+            // The registered name first: it is the one someone just typed, and it overrides
+            // anything the source declared, so a typo here makes the declared names irrelevant.
+            if (client.Options.TransportName is { } configured
+                && !resolver.TryResolve(configured, out _))
+            {
+                throw new UnknownTransportException(
+                    $"{client.Contract} is registered with UseTransport(\"{configured}\"), but no transport "
+                    + $"is registered under that name. Registered transports: "
+                    + $"{Describe(resolver)}.")
+                {
+                    RequestedName = configured,
+                    AvailableNames = resolver.Names
+                };
+            }
+
+            // A declared name that registration has overridden is never used, so checking it would
+            // be noise — and worse, it would make the override useless as an escape hatch for a
+            // consumer who does not want the transport an interface asks for.
+            if (client.Options.TransportName is not null)
+                continue;
+
+            foreach (var declared in client.DeclaredTransportNames)
+            {
+                if (!resolver.TryResolve(declared, out _))
+                {
+                    throw new UnknownTransportException(
+                        $"{client.Contract} declares [Transport(\"{declared}\")], but no transport is "
+                        + $"registered under that name. Either register it, or override it with "
+                        + $"UseTransport(...) when registering the client. Registered transports: "
+                        + $"{Describe(resolver)}.")
+                    {
+                        RequestedName = declared,
+                        AvailableNames = resolver.Names
+                    };
+                }
+            }
+        }
+    }
+
+    private static string Describe(HttpTransportResolver resolver)
+        => resolver.Names.Count == 0 ? "none" : string.Join(", ", resolver.Names);
 
     /// <summary>
     /// Seeds options from what the interface declared, so attributes are the default and

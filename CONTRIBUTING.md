@@ -118,12 +118,17 @@ because it needs nothing beyond the BCL and so costs a consumer no extra depende
     ```
 3. Implement `IHttpTransport`. Translate the neutral request into your stack's own request,
    send it, and translate the result back. Do not serialize, retry, or log in here.
-4. Declare what you can't do in `Capabilities`, honestly. A transport that claims streaming it
+4. Expose your transport's name as a `public const string TransportName`, the way
+   `HttpClientTransport` does, and use it from your own registration extension. Callers then write
+   `UseTransport(YourTransport.TransportName)` instead of a string literal, and because it is a
+   `const` it works inside `[Transport(...)]` too. There is no central list of names to add
+   yourself to — that is the point, and it is why the name is a string rather than an enum.
+5. Declare what you can't do in `Capabilities`, honestly. A transport that claims streaming it
    doesn't have is worse than one that admits it.
-5. Provide a dependency-injection registration extension (e.g. `AddRestSharpTransport(...)`).
-6. Declare the SDK version in `Directory.Packages.props`, then reference it from your `.csproj`
+6. Provide a dependency-injection registration extension (e.g. `AddRestSharpTransport(...)`).
+7. Declare the SDK version in `Directory.Packages.props`, then reference it from your `.csproj`
    **without** a `Version` attribute (see below).
-7. Add a test project under `tests/` and run the shared transport conformance suite against it.
+8. Add a test project under `tests/` and run the shared transport conformance suite against it.
    That suite, not a hand-written set of tests, is what makes a transport done.
 
 ## Adding a dependency

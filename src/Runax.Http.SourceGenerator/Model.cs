@@ -128,6 +128,7 @@ internal sealed class ClientModel
         string? baseAddress,
         string? transportName,
         ImmutableArray<KeyValuePair<string, string>> defaultHeaders,
+        ImmutableArray<string> declaredTransportNames,
         ImmutableArray<MethodModel> methods)
     {
         ContractName = contractName;
@@ -137,6 +138,7 @@ internal sealed class ClientModel
         BaseAddress = baseAddress;
         TransportName = transportName;
         DefaultHeaders = defaultHeaders;
+        DeclaredTransportNames = declaredTransportNames;
         Methods = methods;
     }
 
@@ -157,6 +159,13 @@ internal sealed class ClientModel
     internal string? TransportName { get; }
 
     internal ImmutableArray<KeyValuePair<string, string>> DefaultHeaders { get; }
+
+    /// <summary>
+    /// Every distinct transport name the interface mentions, from the interface and its methods.
+    /// Emitted so a misspelled one is caught when transports are resolved rather than on the first
+    /// call to the single method carrying it.
+    /// </summary>
+    internal ImmutableArray<string> DeclaredTransportNames { get; }
 
     internal ImmutableArray<MethodModel> Methods { get; }
 }

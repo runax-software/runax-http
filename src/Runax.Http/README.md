@@ -56,12 +56,12 @@ query parameter" is how a secret ends up in a URL.
 ```csharp
 services.AddRunaxHttp()
         .AddTransport(myTransport)
-        .UseDefaultTransport("httpclient");
+        .UseDefaultTransport(HttpClientTransport.TransportName);
 
 services.AddRunaxClient<IRepositoryClient>()
-        .UseTransport("restsharp");      // deployment-time choice
+        .UseTransport(RestSharpTransport.TransportName);   // deployment-time choice
 
-using (TransportScope.Use("restsharp")) // per-call, no signature change
+using (TransportScope.Use(RestSharpTransport.TransportName))  // per call, no signature change
     await client.GetAsync(owner, name);
 ```
 
@@ -69,6 +69,35 @@ Precedence is **scope → registration → `[Transport]` attribute → the only 
 Per call beats registration beats what the source declared, so the person closest to the decision
 wins and an interface author's `[Transport]` stays a suggestion rather than a constraint on
 whoever consumes the interface.
+
+### Naming a transport
+
+Every transport exposes its own name as a constant — `HttpClientTransport.TransportName`,
+`RestSharpTransport.TransportName` — and that is the form to prefer. You get IntelliSense off a
+type you already reference, and a `const string` also works inside the attribute:
+
+```csharp
+[Transport(HttpClientTransport.TransportName)]
+public interface IRepositoryClient { }
+```
+
+A transport is identified by a **name**, not a type, and deliberately not an enum:
+
+- An enum would have to live in `Runax.Http.Abstractions`, the package every transport already
+  references, so no transport package could name itself without a coordinated release of the one
+  thing at the bottom of the dependency graph.
+- A type parameter (`UseTransport<RestSharpTransport>()`) can't express the cases that matter.
+  A transport's identity is its *registration*: `HttpClientTransport` takes a name precisely so
+  several can be registered with different handlers, proxies or timeouts, and a type cannot tell
+  those apart.
+- A name can come from configuration. `"Transport": "restsharp"` in `appsettings.json` has to
+  resolve to something, and that something is a string.
+
+The cost of a string is that a typo cannot be a build error. It is, however, an immediate one: a
+client registered with a name nothing is registered under fails when transports are first
+resolved, naming the client and listing what *is* registered — rather than surfacing on whichever
+request first asks for it. Names from `[Transport]` on a method are checked the same way, so a
+typo on a rarely called method does not lie dormant.
 
 ## What the generator catches
 

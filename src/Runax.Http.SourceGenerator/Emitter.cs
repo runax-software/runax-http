@@ -216,6 +216,17 @@ internal static class Emitter
         if (client.TransportName is not null)
             code.AppendLine($"{indent}                TransportName = {Literal(client.TransportName)},");
 
+        if (client.DeclaredTransportNames.Length > 0)
+        {
+            code.AppendLine($"{indent}                DeclaredTransportNames = new string[]");
+            code.AppendLine($"{indent}                {{");
+
+            foreach (var name in client.DeclaredTransportNames)
+                code.AppendLine($"{indent}                    {Literal(name)},");
+
+            code.AppendLine($"{indent}                }},");
+        }
+
         if (client.DefaultHeaders.Length > 0)
         {
             code.AppendLine($"{indent}                DefaultHeaders = new global::System.Collections.Generic.KeyValuePair<string, string>[]");

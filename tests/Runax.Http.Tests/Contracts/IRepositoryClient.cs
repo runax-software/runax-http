@@ -60,9 +60,4 @@ internal interface IRepositoryClient
         string name,
         [Body(Format = BodyFormat.Raw)] string markdown,
         CancellationToken ct = default);
-
-    /// <summary>Declares a transport, which registration and a scope are both allowed to override.</summary>
-    [Get("/repos/{owner}/{name}/traffic")]
-    [Transport("declared")]
-    Task<Repository> GetTrafficAsync(string owner, string name, CancellationToken ct = default);
 }

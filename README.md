@@ -3,9 +3,10 @@
 Declarative HTTP clients for .NET: annotate an interface, get an implementation at compile
 time — over whichever HTTP library you choose, swappable at run time.
 
-> **Status: pre-release.** This repository currently holds the build and CI scaffolding. The
-> packages described below are not on NuGet yet. See [ROADMAP.md](ROADMAP.md) for what lands
-> when, and [CHANGELOG.md](CHANGELOG.md) for what has already landed.
+> **Status: pre-release.** `Runax.Http` and `Runax.Http.Abstractions` work end to end — generator,
+> runtime, DI and the `HttpClient` transport — but nothing is on NuGet yet and the second transport
+> that will prove the abstraction holds is still to come. See [ROADMAP.md](ROADMAP.md) for what
+> lands when, and [CHANGELOG.md](CHANGELOG.md) for what already has.
 
 ## The idea
 
@@ -36,8 +37,14 @@ public interface IRepositoryClient
 ```
 
 A source generator emits the implementation at compile time — no reflection, no proxy types,
-trimming- and AOT-safe. Mistakes (a `{placeholder}` with no matching parameter, two `[Body]`
-parameters, an unregistered transport name) are build errors, not 3am production errors.
+trimming- and AOT-safe. Mistakes are build errors rather than 3am production errors: fourteen
+diagnostics (`RXH001`–`RXH014`) cover a `{placeholder}` with no matching parameter, two `[Body]`
+parameters, an unbindable parameter, a synchronous return type, a non-absolute `[BaseAddress]`, and
+more — each with a location and a sentence saying what to do.
+
+A parameter with no attribute binds to a path placeholder of the same name. Anything else is an
+error, because guessing that an unbound parameter "must be a query parameter" is how a secret ends
+up in a URL.
 
 ## What makes it different
 
@@ -45,13 +52,20 @@ Existing declarative HTTP client libraries bind you to one HTTP stack. Runax.Htt
 HTTP library as a transport, the way a messaging library treats a broker:
 
 ```csharp
-// Pick a default at registration
-services.AddHttpClientContract<IRepositoryClient>()
+services.AddRunaxHttp().UseSystemTextJson();
+
+// Pick a transport at registration
+services.AddRunaxClient<IRepositoryClient>()
         .UseTransport("restsharp");
 
-// Or per instance
-var client = factory.Create<IRepositoryClient>("httpclient");
+// Or per call, without changing a single method signature
+using (TransportScope.Use("httpclient"))
+    await client.GetAsync(owner, name);
 ```
+
+Precedence is **scope → registration → `[Transport]` attribute → the only registered transport**,
+so the person closest to the decision wins and an interface author's `[Transport]` stays a
+suggestion rather than a constraint on whoever consumes it.
 
 This matters when the same interface has to be reached two different ways: a plain `HttpClient`
 in your service, and something with heavier cookie, proxy or TLS control for an endpoint that
@@ -62,14 +76,14 @@ The generated code never references a specific HTTP library. It builds a transpo
 request and hands it to `IHttpTransport`. Serialization, retries, logging and auth all sit
 above that boundary, so they are written once rather than once per transport.
 
-## Planned packages
+## Packages
 
-| Package | What it is |
-| --- | --- |
-| `Runax.Http.Abstractions` | Attributes and the transport-neutral contracts. Depends on no HTTP library. |
-| `Runax.Http` | The source generator, DI wiring, the request pipeline, and the `HttpClient` transport. |
-| `Runax.Http.Transports.RestSharp` | RestSharp transport. |
-| `Runax.Http.TestKit` | A recording in-process transport: assert what your client would have sent, no sockets. |
+| Package | Status | What it is |
+| --- | --- | --- |
+| `Runax.Http.Abstractions` | built | Attributes and the transport-neutral contracts. Zero dependencies — the BCL and nothing else. |
+| `Runax.Http` | built | The source generator, DI wiring, the request runtime, and the `HttpClient` transport. |
+| `Runax.Http.Transports.RestSharp` | planned | RestSharp transport. |
+| `Runax.Http.TestKit` | planned | A recording in-process transport: assert what your client would have sent, no sockets. |
 
 `HttpClient` ships inside `Runax.Http` rather than as a separate transport package. The rule
 behind the split is that no package forces a third-party dependency on you — and `HttpClient`

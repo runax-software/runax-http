@@ -16,30 +16,34 @@ effort. Nothing here is a commitment to a date.
   `[Path]`, `[Body]`, `[Header]`) and the transport-neutral contracts (`IHttpTransport`,
   request/response models, `RequestContent`, `TransportCapabilities`, `IContentSerializer`, the
   unified exception types, `ApiResponse<T>`). Zero package dependencies.
-- [ ] **Source generator** — annotated interface in, implementation out. Incremental, cached
+- [x] **Source generator** — annotated interface in, implementation out. Incremental, cached
   per interface, emitting no reflection. Targets Roslyn 4.8 so the .NET 8 SDK can load it.
-- [ ] **Generator diagnostics** — every binding mistake is a build error with a code and a
-  message: unmatched `{placeholder}`, duplicate `[Body]`, unsupported return type, `[Body]` on
-  a GET. This is the main reason to prefer a generator over a runtime proxy, so it gets
-  first-class treatment rather than being bolted on later.
-- [ ] **`HttpClient` transport** — the default, in `Runax.Http`, against the BCL only.
-- [ ] **DI registration** — `AddHttpClientContract<T>()`, named transport selection,
-  integration with `IHttpClientFactory` for the `HttpClient` transport.
+- [x] **Generator diagnostics** — `RXH001`–`RXH014`, each a build error (or, for `[Body]` on a
+  GET, a warning) with a location and a sentence saying what to do. This is the main reason to
+  prefer a generator over a runtime proxy, so it got first-class treatment rather than being
+  bolted on later.
+- [x] **`HttpClient` transport** — the default, in `Runax.Http`, against the BCL only.
+- [x] **DI registration** — `AddRunaxHttp()` and `AddRunaxClient<T>()`, named transport
+  selection, and `IHttpClientFactory` behind the `HttpClient` transport.
 
 ## Milestone 2 — Swapping, for real
 
-- [ ] **Transport resolution** — a default from `[Transport]`, overridden at registration,
-  overridden again per call. Resolution rules settled and documented before a second transport
-  exists, not after.
-- [ ] **`TransportCapabilities`** — transports do not agree on streaming, HTTP/2, per-request
-  proxies, cookie containers or multipart. Each transport declares what it supports, and each
-  unsupported capability has one documented behaviour: throw, or degrade. Silent degradation is
-  how a library like this earns a bad reputation, so the choice is explicit per capability.
+- [x] **Transport resolution** — a default from `[Transport]`, overridden at registration,
+  overridden again per call by `TransportScope`. Settled and documented before a second transport
+  exists, as intended.
+- [x] **`TransportCapabilities`** — each transport declares what it supports, and the check is
+  applied once in the runtime rather than in each transport, so a new one cannot forget it. A gap
+  throws `TransportCapabilityException` before the request is sent.
 - [ ] **`Runax.Http.Transports.RestSharp`** — the second transport, which is what actually
   proves the abstraction holds.
 - [ ] **Transport conformance suite** — one shared test suite every transport must pass,
   running in-process against Kestrel. A new transport is "done" when it passes, not when its
   author says so.
+
+## Milestone 2 remainder
+
+- [ ] **`BodyFormat.UrlEncoded` and `BodyFormat.Multipart`** — currently `RXH014`, a build error
+  saying they are not emitted yet, rather than silently sent as JSON.
 
 ## Milestone 3 — Production surface
 

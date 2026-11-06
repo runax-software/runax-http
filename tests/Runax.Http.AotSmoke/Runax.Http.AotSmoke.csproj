@@ -39,5 +39,19 @@
   <!-- Every shippable package. Add each new one here as it lands, or it goes unverified. -->
   <ItemGroup>
     <ProjectReference Include="../../src/Runax.Http.Abstractions/Runax.Http.Abstractions.csproj" />
+    <ProjectReference Include="../../src/Runax.Http/Runax.Http.csproj" />
+  </ItemGroup>
+
+  <!-- The generator does not travel over a ProjectReference (Runax.Http marks it
+       PrivateAssets="all"), so it is referenced directly. This is the point of the whole smoke
+       test: generated code has to survive AOT, and it only exists if the generator ran. -->
+  <ItemGroup>
+    <ProjectReference Include="../../src/Runax.Http.SourceGenerator/Runax.Http.SourceGenerator.csproj"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Analyzer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 </Project>

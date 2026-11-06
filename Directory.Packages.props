@@ -9,17 +9,21 @@
   </PropertyGroup>
 
   <!-- Core / shared abstractions used by Runax.Http and every transport.
-       One version for all target frameworks, not a lower floor per TFM: a lower floor only
-       produces NU1109 downgrade errors once a transport SDK pulls a newer Microsoft.Extensions.*
-       from its own net8.0 assets. The packages are netstandard2.0/net8.0-compatible, so they
-       load on .NET 8 regardless. -->
+       Every Microsoft.Extensions.* package is held at ONE version, and that version is whatever
+       Microsoft.Extensions.Http depends on. It pulls Logging, Options and Diagnostics at its own
+       version, so pinning any of them lower is an NU1109 downgrade error rather than a supported
+       configuration — there is no "minimum we need", only "what Http drags in".
+
+       One version for all target frameworks, too, rather than a lower floor per TFM: the packages
+       are netstandard2.0/net8.0-compatible and load on .NET 8 regardless, so a lower floor buys
+       nothing and breaks restore the moment a transport SDK pulls something newer. -->
   <ItemGroup Label="Core">
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.14" />
   </ItemGroup>
 
   <!-- Roslyn, for the source generator that turns an annotated interface into a client.
@@ -49,7 +53,7 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing" Version="10.8.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
   </ItemGroup>
 </Project>

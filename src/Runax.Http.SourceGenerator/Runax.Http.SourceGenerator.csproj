@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- netstandard2.0 is not a choice: it is what Roslyn loads analyzers as. -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <!-- Travels inside Runax.Http as an analyzer, so it is neither packed nor published alone. -->
+    <IsPackable>false</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+
+    <!-- Turns on the analyzer-specific rules: no unsafe types across the Roslyn boundary, no
+         compilation captured in a generator pipeline, and so on. These catch the mistakes that
+         otherwise show up as a stale or leaking IDE rather than a failing build. -->
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+  </PropertyGroup>
+
+  <!-- Roslyn requires every diagnostic id to be tracked (RS2008). These ids reach consumers' build
+       logs and NoWarn lists, so retiring one or changing its severity is a breaking change for them;
+       the file is what makes that visible in review. -->
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

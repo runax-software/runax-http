@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../src/Runax.Http/Runax.Http.csproj" />
+  </ItemGroup>
+
+  <!-- A NuGet consumer gets the generator from the analyzers/ folder inside the Runax.Http package.
+       A ProjectReference does not carry it: Runax.Http marks its generator reference
+       PrivateAssets="all", which is what stops the generator assembly leaking into the dependency
+       graph of everything downstream. So in-repo consumers reference the generator themselves. -->
+  <ItemGroup>
+    <ProjectReference Include="../../src/Runax.Http.SourceGenerator/Runax.Http.SourceGenerator.csproj"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Analyzer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+</Project>

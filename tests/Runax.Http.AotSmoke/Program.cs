@@ -1,4 +1,6 @@
 using Runax.Http;
+using Runax.Http.AotSmoke;
+using Runax.Http.DependencyInjection;
 using Runax.Http.Transports;
 
 // Exercises the shipped surface under native AOT. The publish is the real gate — it fails on any
@@ -42,6 +44,37 @@ Check(multipart.Parts.Count == 1, "multipart content");
 
 var form = RequestContent.FromForm([new KeyValuePair<string, string?>("state", "open")]);
 Check(form.ContentType == "application/x-www-form-urlencoded", "form content");
+
+// The real test: a generated client, resolved from a container, serializing through a
+// source-generated JSON context, over a transport — all compiled ahead of time.
+var services = new global::Microsoft.Extensions.DependencyInjection.ServiceCollection();
+
+var shared = services.AddRunaxHttp();
+shared.UseSystemTextJson(AotJson.Options);
+shared.AddTransport(new EchoTransport());
+shared.UseDefaultTransport("echo");
+
+services.AddRunaxClient<IThingClient>().WithBaseAddress("https://api.example.com/v1");
+
+var provider = global::Microsoft.Extensions.DependencyInjection
+    .ServiceCollectionContainerBuilderExtensions.BuildServiceProvider(services);
+
+var things = global::Microsoft.Extensions.DependencyInjection
+    .ServiceProviderServiceExtensions.GetRequiredService<IThingClient>(provider);
+
+var fetched = await things.GetAsync(7);
+Check(fetched is { Id: 7, Name: "echo" }, "generated client deserialized a response");
+
+var created = await things.CreateAsync(new NewThing("made"));
+Check(created.Name == "echo", "generated client serialized a body and read the reply");
+
+var probed = await things.TryGetAsync("missing");
+Check(probed.IsSuccessStatusCode, "generated client returned ApiResponse<T>");
+
+await things.DeleteAsync(7);
+
+using (TransportScope.Use("echo"))
+    Check((await things.GetAsync(1)).Id == 7, "transport scope resolved");
 
 Console.WriteLine("AOT smoke test passed.");
 return 0;

@@ -19,6 +19,13 @@ All packages in the repository are versioned together.
 
 ### Added
 
+- **Generator tests** — a harness that drives the generator over source snippets and asserts on
+  what it reported and emitted, plus one test per diagnostic (40 tests across three target
+  frameworks). Eighteen diagnostics had no automated coverage at all, which is how `RXH001` sat
+  declared and unreachable; the ids also reach consumers' build logs and `NoWarn` lists, so they
+  are API and now have tests to say so in review. The harness tests itself too, since a reference
+  list that silently came up empty would make every "produces no diagnostics" assertion pass for
+  the wrong reason.
 - **Documentation** — eleven pages under `docs/`: defining a client, responses and errors,
   transports, capabilities, retries, serialization, configuration, the full `RXH001`–`RXH018`
   diagnostic reference, architecture, writing a custom transport, and native AOT. Every diagnostic

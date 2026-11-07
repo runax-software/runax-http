@@ -53,6 +53,10 @@ effort. Nothing here is a commitment to a date.
 
 ## Milestone 3 — Production surface
 
+- [x] **Generator tests** — a `CSharpGeneratorDriver` harness, one test per diagnostic, and
+  assertions that the emitted code compiles cleanly, keeps nullable annotations, registers itself
+  and contains nothing reflective.
+
 - [ ] **`Runax.Http.TestKit`** — a recording transport, so consumers can assert the request
   their client would have sent without a socket.
 - [x] **Retries** — configurable per client and off by default, above the transport boundary so

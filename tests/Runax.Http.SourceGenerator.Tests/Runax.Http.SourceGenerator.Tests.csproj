@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <!-- Referenced as a library, not as an analyzer: these tests instantiate the generator and
+         drive it directly, so they can assert on the diagnostics it produced and the code it
+         emitted. Wiring it in as an analyzer as well would run it over this project's own source
+         for no reason. -->
+    <ProjectReference Include="../../src/Runax.Http.SourceGenerator/Runax.Http.SourceGenerator.csproj" />
+
+    <!-- The compilation under test needs the attributes and the runtime on its reference list. -->
+    <ProjectReference Include="../../src/Runax.Http/Runax.Http.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+</Project>

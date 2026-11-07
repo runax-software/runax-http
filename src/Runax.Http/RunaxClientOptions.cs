@@ -1,3 +1,4 @@
+using Runax.Http.Retry;
 using Runax.Http.Serialization;
 
 namespace Runax.Http;
@@ -48,6 +49,12 @@ public sealed class RunaxClientOptions
     /// </summary>
     public IDictionary<string, string> DefaultHeaders { get; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// When and how this client's requests are retried. Off until <see cref="RetryOptions.MaxAttempts"/>
+    /// is raised above one.
+    /// </summary>
+    public RetryOptions Retry { get; } = new();
 
     /// <summary>
     /// Whether to send an <c>Accept</c> header naming the serializer's content type when the

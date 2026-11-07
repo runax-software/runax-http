@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Runax.Http.Retry;
 using Runax.Http.Serialization;
 
 namespace Runax.Http.DependencyInjection;
@@ -49,6 +50,31 @@ public interface IRunaxClientBuilder<TContract>
     /// <param name="value">The header value.</param>
     /// <returns>This builder.</returns>
     IRunaxClientBuilder<TContract> WithDefaultHeader(string name, string value);
+
+    /// <summary>
+    /// Turns on retrying, with everything else left at its default.
+    /// </summary>
+    /// <param name="maxAttempts">
+    /// Total attempts including the first, so <c>3</c> means one try and two retries. Must be at
+    /// least one; one means no retrying.
+    /// </param>
+    /// <returns>This builder.</returns>
+    /// <remarks>
+    /// Retrying is off until you call this. The defaults it turns on are deliberately cautious:
+    /// exponential backoff with jitter, <c>Retry-After</c> honoured, transient status codes only,
+    /// and <em>idempotent methods only</em> — a retried <c>POST</c> that timed out after the
+    /// server committed it creates the thing twice, so that needs asking for explicitly.
+    /// </remarks>
+    IRunaxClientBuilder<TContract> WithRetry(int maxAttempts);
+
+    /// <summary>Configures retrying in full.</summary>
+    /// <param name="configure">Applied to this client's retry settings.</param>
+    /// <returns>This builder.</returns>
+    /// <remarks>
+    /// Set <see cref="RetryOptions.MaxAttempts"/> above one, or nothing is retried however the
+    /// rest is configured.
+    /// </remarks>
+    IRunaxClientBuilder<TContract> WithRetry(Action<RetryOptions> configure);
 
     /// <summary>Sets the serializer for this client's bodies, overriding the application-wide one.</summary>
     /// <param name="serializer">The serializer.</param>

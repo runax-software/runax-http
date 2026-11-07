@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Runax.Http.Retry;
 using Runax.Http.Serialization;
 
 namespace Runax.Http.DependencyInjection;
@@ -71,6 +72,28 @@ internal sealed class RunaxClientBuilder<TContract> : IRunaxClientBuilder<TContr
         ArgumentNullException.ThrowIfNull(value);
 
         _options.DefaultHeaders[name] = value;
+
+        return this;
+    }
+
+    /// <inheritdoc />
+    public IRunaxClientBuilder<TContract> WithRetry(int maxAttempts)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxAttempts, 1);
+
+        _options.Retry.MaxAttempts = maxAttempts;
+
+        return this;
+    }
+
+    /// <inheritdoc />
+    public IRunaxClientBuilder<TContract> WithRetry(Action<RetryOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+
+        configure(_options.Retry);
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(_options.Retry.MaxAttempts, 1);
 
         return this;
     }

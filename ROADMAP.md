@@ -49,9 +49,15 @@ effort. Nothing here is a commitment to a date.
 
 - [ ] **`Runax.Http.TestKit`** — a recording transport, so consumers can assert the request
   their client would have sent without a socket.
-- [ ] **Request pipeline** — retries, logging, auth and correlation as transport-agnostic
+- [x] **Retries** — configurable per client and off by default, above the transport boundary so
+  every transport gets the same behaviour. Exponential/linear/constant backoff with jitter,
+  `Retry-After` honoured, idempotent methods only unless asked otherwise, and never for a body
+  that cannot be replayed.
+- [ ] **The rest of the pipeline** — logging, auth and correlation as transport-agnostic
   middleware. `DelegatingHandler` only exists in `HttpClient`-land, so anything built on it
   can't be reused for the other transports; this is the replacement.
+- [ ] **Per-method retry** — a `[Retry]` attribute, for the one flaky endpoint on an otherwise
+  healthy API. Registration-level configuration covers the common case today.
 - [ ] **AOT and trimming** — source-generated JSON, an `AotSmoke` publish in CI that fails on
   any trim or AOT warning.
 - [ ] **Per-package READMEs and docs** — one documentation page per concept, one README per

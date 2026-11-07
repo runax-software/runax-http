@@ -55,6 +55,19 @@ All packages in the repository are versioned together.
     context needs no reflection. `AddRunaxHttp()` registers no serializer by default: the
     convenient reflection-based one is one explicit call that carries a trimming warning, rather
     than a silent default that opts every application out of AOT.
+- **Retries**, off by default and configurable per client with `WithRetry(3)` or
+  `WithRetry(options => ...)`: attempt count, base and maximum delay, constant/linear/exponential
+  backoff, jitter, `Retry-After` handling, and which status codes count. They sit above the
+  transport boundary, so every transport gets the same behaviour and swapping one does not change
+  retry semantics.
+  - Three defaults are safety decisions rather than taste. Only idempotent methods are retried —
+    a retried `POST` that timed out after the server committed it creates the thing twice. A
+    request whose body is a stream is never retried, because the stream is already consumed and
+    buffering it would mean holding an upload of unknown size in memory. And 500 is not in the
+    retryable set: 408, 429, 502, 503 and 504 are.
+  - `Retry-After` is honoured, and a value longer than `MaxRetryAfterDelay` is treated as a
+    refusal to retry rather than an instruction to block for it. A capability gap is never
+    retried, since waiting will not give a transport an ability it lacks.
 - **`Runax.Http.Abstractions`** — the attributes a client interface is written with and the
   contracts a transport implements. Zero package dependencies on every target framework: the BCL
   and nothing else, so neither an application nor a transport author inherits anything from

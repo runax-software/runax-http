@@ -1,5 +1,6 @@
 using System.Text;
 using Runax.Http.Requests;
+using Runax.Http.Retry;
 using Runax.Http.Serialization;
 using Runax.Http.Transports;
 
@@ -126,10 +127,82 @@ public sealed class HttpContractExecutor : IHttpContractExecutor
         if (gap is not null)
             throw gap;
 
-        var response = await transport.SendAsync(transportRequest, cancellationToken).ConfigureAwait(false);
-
-        return new Exchange(response, transport.Name, transportRequest.RequestUri);
+        return await SendWithRetriesAsync(transport, transportRequest, cancellationToken)
+            .ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Sends the request, repeating it while the settings allow and the outcome warrants it.
+    /// </summary>
+    /// <remarks>
+    /// Above the transport on purpose. Every transport gets the same retry behaviour, and none of
+    /// them has to implement it — which also means retry semantics do not change when you swap one.
+    /// </remarks>
+    private async Task<Exchange> SendWithRetriesAsync(
+        IHttpTransport transport,
+        TransportRequest request,
+        CancellationToken cancellationToken)
+    {
+        var retry = _options.Retry;
+        var retryable = RetryPlanner.IsRetryable(retry, request);
+        var attempt = 0;
+
+        while (true)
+        {
+            attempt++;
+
+            TransportResponse response;
+
+            try
+            {
+                response = await transport.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            }
+            catch (TransportException) when (retryable
+                                             && retry.RetryTransportFailures
+                                             && attempt < retry.MaxAttempts
+                                             && !cancellationToken.IsCancellationRequested)
+            {
+                // The request never reached a status code, which is the case retrying is actually
+                // for. No Retry-After to consult, so the backoff curve decides.
+                var failureDelay = RetryPlanner.ComputeDelay(retry, attempt, retryAfter: null);
+
+                if (failureDelay is null)
+                    throw;
+
+                await DelayAsync(retry, failureDelay.Value, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            if (!retryable
+                || attempt >= retry.MaxAttempts
+                || !RetryPlanner.ShouldRetryStatus(retry, response.StatusCode))
+            {
+                return new Exchange(response, transport.Name, request.RequestUri);
+            }
+
+            var retryAfter = RetryPlanner.ReadRetryAfter(
+                response.Headers, retry.TimeProvider.GetUtcNow());
+
+            var delay = RetryPlanner.ComputeDelay(retry, attempt, retryAfter);
+
+            if (delay is null)
+            {
+                // The server asked for longer than we are willing to wait. That is a refusal to
+                // retry, not an instruction to block, so the response is returned as the answer.
+                return new Exchange(response, transport.Name, request.RequestUri);
+            }
+
+            // Disposed before waiting, so a pooled connection is not held for the whole backoff.
+            await response.DisposeAsync().ConfigureAwait(false);
+
+            await DelayAsync(retry, delay.Value, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static Task DelayAsync(RetryOptions retry, TimeSpan delay, CancellationToken cancellationToken)
+        => delay <= TimeSpan.Zero
+            ? Task.CompletedTask
+            : Task.Delay(delay, retry.TimeProvider, cancellationToken);
 
     /// <summary>
     /// Applies the transport precedence: ambient scope, then registration, then what the source

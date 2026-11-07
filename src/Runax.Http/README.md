@@ -99,6 +99,53 @@ resolved, naming the client and listing what *is* registered — rather than sur
 request first asks for it. Names from `[Transport]` on a method are checked the same way, so a
 typo on a rarely called method does not lie dormant.
 
+## Retries
+
+Off until you ask for them:
+
+```csharp
+services.AddRunaxClient<IRepositoryClient>()
+        .WithRetry(3);                   // one try, two retries
+
+services.AddRunaxClient<IRepositoryClient>()
+        .WithRetry(options =>
+        {
+            options.MaxAttempts = 5;
+            options.Delay = TimeSpan.FromMilliseconds(200);
+            options.MaxDelay = TimeSpan.FromSeconds(10);
+            options.Backoff = BackoffStrategy.Exponential;   // or Linear, Constant
+            options.UseJitter = true;
+            options.RespectRetryAfter = true;
+            options.RetryableStatusCodes.Add(500);
+            options.RetryNonIdempotentMethods = true;        // read the warning below first
+        });
+```
+
+Three defaults are safety decisions rather than taste, and worth knowing before you change them:
+
+**Idempotent methods only.** `GET`, `HEAD`, `OPTIONS`, `PUT` and `DELETE` are retried; `POST` and
+`PATCH` are not. A retried `POST` that timed out *after* the server committed it creates the thing
+twice, and the client has no way to know which happened. Turn
+`RetryNonIdempotentMethods` on only for an endpoint with an idempotency key or a genuinely
+idempotent handler.
+
+**A streamed body is never retried**, whatever the settings say. The stream was consumed by the
+first attempt, so a second would send a truncated request — and buffering it instead would mean
+holding an upload of unknown size in memory on the off chance of a retry.
+
+**500 is not retryable by default.** 408, 429, 502, 503 and 504 are. A plain Internal Server Error
+is usually a bug in the request or the handler, so repeating it multiplies the log noise without
+changing the outcome. Add it if your server is known to use 500 for transient faults.
+
+Beyond that: `Retry-After` is honoured when present, and a value longer than `MaxRetryAfterDelay`
+is treated as a refusal to retry rather than an instruction to block for it. Jitter is on, because
+without it every client that failed at the same moment retries at the same moment and a recovering
+service gets hit by a synchronized wave. A capability gap is never retried — waiting will not give
+a transport an ability it lacks.
+
+Retries live above the transport boundary, so every transport gets the same behaviour and none of
+them implements it. Swapping a transport does not change your retry semantics.
+
 ## What the generator catches
 
 Fourteen diagnostics, `RXH001`–`RXH014`: a `{placeholder}` with no parameter, two `[Body]`

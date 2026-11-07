@@ -18,9 +18,11 @@ Ordered by what each item unblocks rather than by effort. Nothing here is a comm
   every transport gets the same behaviour. Exponential/linear/constant backoff with jitter,
   `Retry-After` honoured, idempotent methods only unless asked otherwise, and never for a body
   that cannot be replayed.
-- [ ] **The rest of the pipeline** — logging, auth and correlation as transport-agnostic
-  middleware. `DelegatingHandler` only exists in `HttpClient`-land, so anything built on it
-  can't be reused for the other transports; this is the replacement.
+- [x] **The rest of the pipeline** — logging, auth and correlation as transport-agnostic
+  middleware, above `IHttpTransport` for the same reason serialization and retries are. Runs
+  inside the retry loop so a refreshed token reaches the retry, with a per-call context so a
+  correlation id does not change between attempts. Ordering comes from the stage, not from
+  registration order. Bodies are never logged and header values are an allow-list.
 - [x] **Per-method retry** — a `[Retry]` attribute, for the one flaky endpoint on an otherwise
   healthy API. Refines the client's settings and wins on attempt count; `WithoutRetries()` on the
   client beats every declaration, so an operator keeps the last word.

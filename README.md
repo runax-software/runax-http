@@ -82,8 +82,10 @@ discriminates on the status, a JSON property or a header. Retries are built in a
 `WithRetry(3)`.
 
 The generated code never references a specific HTTP library. It builds a transport-neutral
-request and hands it to `IHttpTransport`. Serialization, retries, logging and auth all sit
-above that boundary, so they are written once rather than once per transport.
+request and hands it to `IHttpTransport`. Serialization, retries, logging, auth and telemetry all
+sit above that boundary, so they are written once rather than once per transport — and the
+[observability](docs/observability.md) that `UseTelemetry()` emits follows the OpenTelemetry HTTP
+conventions, tags whichever transport answered, and takes no dependency on OpenTelemetry to do it.
 
 ## Packages
 

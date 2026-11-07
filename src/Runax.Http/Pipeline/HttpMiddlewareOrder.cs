@@ -12,6 +12,18 @@ public static class HttpMiddlewareOrder
     /// <summary>
     /// Correlation, outermost, so every stage inside it — and every log line — sees the same id.
     /// </summary>
+    /// <summary>
+    /// The telemetry stage, outermost of the built-in stages.
+    /// </summary>
+    /// <remarks>
+    /// Outside <see cref="Correlation"/> deliberately, and the one ordering here that is a
+    /// correctness constraint rather than a preference: the correlation stage derives its id from
+    /// the ambient <see cref="System.Diagnostics.Activity"/>, so the span has to have been started
+    /// before it runs. Reverse the two and the <c>traceparent</c> header reaching the server names
+    /// a span that does not exist.
+    /// </remarks>
+    public const int Telemetry = 50;
+
     public const int Correlation = 100;
 
     /// <summary>

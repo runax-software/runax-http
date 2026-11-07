@@ -174,6 +174,30 @@ public interface IRunaxClientBuilder<TContract>
     /// <returns>This builder.</returns>
     IRunaxClientBuilder<TContract> UseCorrelation(Action<CorrelationOptions>? configure = null);
 
+    /// <summary>
+    /// Records an OpenTelemetry span and a request-duration measurement per attempt.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Emitting only. Nothing here collects or exports anything, and the package takes no
+    /// dependency on OpenTelemetry — the span goes to <see cref="System.Diagnostics.Activity"/> and
+    /// the measurement to a <see cref="System.Diagnostics.Metrics.Meter"/>, both of which are in
+    /// the base library. Point a collector at them by name:
+    /// </para>
+    /// <code>
+    /// builder.Services.AddOpenTelemetry()
+    ///     .WithTracing(t => t.AddSource(RunaxHttpTelemetry.ActivitySourceName))
+    ///     .WithMetrics(m => m.AddMeter(RunaxHttpTelemetry.MeterName));
+    /// </code>
+    /// <para>
+    /// Until something subscribes, both are inert — so this is safe to leave on in a library whose
+    /// consumers may not have a collector at all.
+    /// </para>
+    /// </remarks>
+    /// <param name="configure">Turns tracing or metrics off, and adjusts what is recorded.</param>
+    /// <returns>This builder.</returns>
+    IRunaxClientBuilder<TContract> UseTelemetry(Action<TelemetryOptions>? configure = null);
+
     /// <summary>Configures anything the named helpers do not cover.</summary>
     /// <param name="configure">Applied to this client's options.</param>
     /// <returns>This builder.</returns>

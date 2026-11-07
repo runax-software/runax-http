@@ -261,12 +261,13 @@ every declaration — an operator needs a client that provably stops retrying du
 The safety defaults hold: a streamed body is still never retried, and a `POST` needs
 `AllowNonIdempotent = true` (a `[Retry]` on one without it is a build warning, since it would
 otherwise do nothing).
-## Logging, auth and correlation
+## Logging, auth, correlation and telemetry
 
 Middleware that works on every transport, each stage independently opt-in:
 
 ```csharp
 services.AddRunaxClient<IRepositoryClient>()
+        .UseTelemetry()                               // a span and a duration per attempt
         .UseCorrelation()                             // stable id per call, W3C traceparent
         .UseLogging()                                 // a line per attempt
         .UseBearerToken(() => tokenCache.Current);    // re-read on every attempt
@@ -281,13 +282,22 @@ reach a retry. Anything that must *not* change between attempts — a correlatio
 `RequestContext`, which is created once per call. Neither position serves both on its own.
 
 Ordering is explicit, from `IHttpMiddleware.Order` rather than from where `Use…()` sits in the
-chain: correlation outermost, then logging, then authentication closest to the wire.
+chain: telemetry outermost, then correlation, then logging, then authentication closest to the wire.
+Telemetry has to be outside correlation rather than beside it, because the correlation id is derived
+from the span.
 
 The logging stage **never logs bodies**, and header values are off unless named. `Authorization`,
 `Proxy-Authorization`, `Cookie` and `Set-Cookie` are redacted to `***` even when named, and that
 cannot be turned off — an option that can print a bearer token into a log aggregator would
 eventually be used. Full reasoning in
 [docs/pipeline.md](https://github.com/runax-software/runax-http/blob/main/docs/pipeline.md).
+
+`UseTelemetry()` records a span and an `http.client.request.duration` histogram under the
+OpenTelemetry HTTP client semantic conventions, tagged with the transport that answered — one span
+per *attempt*, so a retried call is distinguishable from a slow one. It emits to `ActivitySource`
+and `Meter` in the base class library, so the package takes no dependency on OpenTelemetry and stays
+inert until a collector subscribes to `RunaxHttpTelemetry.ActivitySourceName`. See
+[docs/observability.md](https://github.com/runax-software/runax-http/blob/main/docs/observability.md).
 
 ## What the generator catches
 

@@ -66,4 +66,15 @@ public sealed class ClientRequest
 
     /// <summary>A per-request proxy. Requires a transport with per-request proxy support.</summary>
     public RequestProxy? Proxy { get; init; }
+
+    /// <summary>
+    /// What this method's <see cref="RetryAttribute"/> declared, refining the client's retry
+    /// settings. <see langword="null"/> when it declared none.
+    /// </summary>
+    /// <remarks>
+    /// Alongside <see cref="Timeout"/> because it is the same kind of thing: a per-request
+    /// refinement of a client-wide setting, decided at compile time and carried rather than
+    /// reflected.
+    /// </remarks>
+    public Retry.RetryOverride? Retry { get; init; }
 }

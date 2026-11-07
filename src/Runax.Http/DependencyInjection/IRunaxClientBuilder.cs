@@ -76,6 +76,22 @@ public interface IRunaxClientBuilder<TContract>
     /// </remarks>
     IRunaxClientBuilder<TContract> WithRetry(Action<RetryOptions> configure);
 
+    /// <summary>
+    /// Turns retrying off for this client, and ignores every <see cref="RetryAttribute"/> its
+    /// methods declare.
+    /// </summary>
+    /// <returns>This builder.</returns>
+    /// <remarks>
+    /// The operator's last word. A method's <c>[Retry]</c> normally refines these settings and wins
+    /// on attempt count — right when an interface author knows an endpoint is flaky, wrong in the
+    /// middle of an incident when whoever is holding the pager needs a client that provably stops.
+    /// <para>
+    /// Not the same as <c>WithRetry(1)</c>, which only says this client has no retry policy of its
+    /// own and leaves a declaration free to supply one.
+    /// </para>
+    /// </remarks>
+    IRunaxClientBuilder<TContract> WithoutRetries();
+
     /// <summary>Sets the serializer for this client's bodies, overriding the application-wide one.</summary>
     /// <param name="serializer">The serializer.</param>
     /// <returns>This builder.</returns>

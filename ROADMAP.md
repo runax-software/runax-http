@@ -21,8 +21,9 @@ Ordered by what each item unblocks rather than by effort. Nothing here is a comm
 - [ ] **The rest of the pipeline** — logging, auth and correlation as transport-agnostic
   middleware. `DelegatingHandler` only exists in `HttpClient`-land, so anything built on it
   can't be reused for the other transports; this is the replacement.
-- [ ] **Per-method retry** — a `[Retry]` attribute, for the one flaky endpoint on an otherwise
-  healthy API. Registration-level configuration covers the common case today.
+- [x] **Per-method retry** — a `[Retry]` attribute, for the one flaky endpoint on an otherwise
+  healthy API. Refines the client's settings and wins on attempt count; `WithoutRetries()` on the
+  client beats every declaration, so an operator keeps the last word.
 - [x] **AOT and trimming** — source-generated JSON, and an `AotSmoke` publish in CI that fails on
   any trim or AOT warning and then runs the binary.
 - [x] **Per-package READMEs and docs** — one documentation page per concept, one README per

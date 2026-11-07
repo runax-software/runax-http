@@ -99,6 +99,14 @@ internal sealed class RunaxClientBuilder<TContract> : IRunaxClientBuilder<TContr
     }
 
     /// <inheritdoc />
+    public IRunaxClientBuilder<TContract> WithoutRetries()
+    {
+        _options.Retry.Suppressed = true;
+
+        return this;
+    }
+
+    /// <inheritdoc />
     public IRunaxClientBuilder<TContract> UseSerializer(IContentSerializer serializer)
     {
         ArgumentNullException.ThrowIfNull(serializer);

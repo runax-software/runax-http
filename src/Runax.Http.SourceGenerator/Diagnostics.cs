@@ -126,6 +126,20 @@ internal static class Diagnostics
         "'{0}' declares a [Response] after an unconditional one, which matches everything. Move the "
         + "unconditional [Response] last, since it is the fallback.");
 
+    internal static readonly DiagnosticDescriptor RetryOnNonIdempotentMethod = Warning(
+        "RXH020",
+        "This [Retry] will not retry anything",
+        "'{0}' is a {1}, which is not idempotent, so [Retry] leaves it alone and the attribute has "
+        + "no effect. A retried {1} that timed out after the server committed it creates the thing "
+        + "twice. If this endpoint has an idempotency key or a genuinely idempotent handler, say so "
+        + "with [Retry({2}, AllowNonIdempotent = true)]; otherwise remove the attribute.");
+
+    internal static readonly DiagnosticDescriptor InvalidRetryAttemptCount = Error(
+        "RXH021",
+        "[Retry] needs at least one attempt",
+        "'{0}' declares [Retry({1})]. Attempts include the first, so the lowest meaningful value is "
+        + "1 — which says this method must not be retried even though its client is configured to.");
+
     private static DiagnosticDescriptor Error(string id, string title, string format)
         => new(id, title, format, Category, DiagnosticSeverity.Error, isEnabledByDefault: true);
 

@@ -210,12 +210,35 @@ a transport an ability it lacks.
 Retries live above the transport boundary, so every transport gets the same behaviour and none of
 them implements it. Swapping a transport does not change your retry semantics.
 
+### One flaky endpoint
+
+For the single endpoint that needs its own policy rather than the client's:
+
+```csharp
+[Get("/reports/{id}")]
+[Retry(5, DelayMilliseconds = 250)]
+Task<Report> GetReportAsync(int id, CancellationToken ct = default);
+```
+
+It refines the client's settings — backoff, jitter, status codes and `Retry-After` handling still
+come from the registration — and **wins over the client's attempt count**, because "how should this
+endpoint behave" narrows "how should this client behave by default". It also turns retrying on by
+itself, so you do not need `WithRetry` first.
+
+`[Retry(1)]` exempts one method from a client-wide policy. `WithoutRetries()` on the client beats
+every declaration — an operator needs a client that provably stops retrying during an incident.
+
+The safety defaults hold: a streamed body is still never retried, and a `POST` needs
+`AllowNonIdempotent = true` (a `[Retry]` on one without it is a build warning, since it would
+otherwise do nothing).
+
 ## What the generator catches
 
-Eighteen diagnostics: a `{placeholder}` with no parameter, two `[Body]` parameters, an unbindable
+Twenty diagnostics: a `{placeholder}` with no parameter, two `[Body]` parameters, an unbindable
 parameter, a synchronous return type, a generic interface or method, a `[BaseAddress]` that isn't
-absolute, two parameters bound to one placeholder, a body parameter typed wrong for its format.
-Every one is a build error with a location and a sentence saying what to do.
+absolute, two parameters bound to one placeholder, a body parameter typed wrong for its format, a
+`[Retry]` that cannot retry anything. Every one is a build error — or a warning where the code is
+legal but almost certainly not what you meant — with a location and a sentence saying what to do.
 
 That list is the reason to prefer a generator over a runtime proxy. A reflection-based client finds
 these on the first call that reaches them, in whatever environment gets there first.

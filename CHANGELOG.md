@@ -10,6 +10,33 @@ All packages in the repository are versioned together.
 
 ### Added
 
+- **`[Retry]` on a method**, for the one flaky endpoint on an otherwise healthy API. Surfaces an
+  attempt count, `DelayMilliseconds` (milliseconds because a `TimeSpan` cannot be an attribute
+  argument) and `AllowNonIdempotent`. It refines the client's registered settings rather than
+  replacing them: backoff curve, jitter, status-code set and `Retry-After` handling still come from
+  the registration, and only what the attribute names changes.
+  - **A method's declaration wins over the client's attempt count**, which is the opposite of how
+    `[Transport]` resolves. Deliberately: a transport is a *competing* claim about one fact — which
+    stack sends the request — so one side has to lose and the operator knows the deployment. A
+    retry count is a *refinement*, so there is no tie to break and the more specific statement
+    applies. A per-request timeout and a method's `[Header]` over a client-wide default header
+    already work this way.
+  - **`WithoutRetries()`** on a client turns retrying off and ignores every declaration. The
+    operator keeps the last word, because a client that cannot be stopped from retrying is a
+    liability during an incident. Distinct from `WithRetry(1)`, which only says the client has no
+    policy of its own and leaves a declaration free to supply one.
+  - A declaration turns retrying on by itself, without a client-wide `WithRetry` first — otherwise
+    the attribute would do nothing in the common case, since retrying is off by default.
+    `[Retry(1)]` is meaningful in the other direction: it exempts one method from a client-wide
+    policy.
+  - The safety defaults are not bypassable. A streamed body is still never retried, since the first
+    attempt consumed it. A non-idempotent method still needs `AllowNonIdempotent`, which lives on
+    the attribute because the interface author is the one who knows whether a given endpoint has an
+    idempotency key — the client-wide `RetryNonIdempotentMethods` opts in every method at once and
+    is the blunter instrument.
+  - Two new diagnostics. `RXH020` (warning) catches a `[Retry]` on a `POST` or `PATCH` without
+    `AllowNonIdempotent`, where the attribute would silently do nothing. `RXH021` catches an
+    attempt count below one.
 - **`BodyFormat.UrlEncoded` and `BodyFormat.Multipart`** are now emitted, completing the body
   formats the attribute has always advertised. A form body comes from a sequence of key/value pairs
   — a `Dictionary<string, string>`, or `IEnumerable<KeyValuePair<string, object?>>` for values that

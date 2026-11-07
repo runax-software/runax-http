@@ -208,7 +208,11 @@ public sealed class HttpContractExecutor : IHttpContractExecutor
         if (gap is not null)
             throw gap;
 
-        return await SendWithRetriesAsync(transport, transportRequest, cancellationToken)
+        // Resolved here so the retry loop below needs no knowledge of where its settings came
+        // from: a method's [Retry] refines the client's options, and Suppressed beats both.
+        var retry = _options.Retry.Resolve(request.Retry);
+
+        return await SendWithRetriesAsync(transport, transportRequest, retry, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -219,12 +223,12 @@ public sealed class HttpContractExecutor : IHttpContractExecutor
     /// Above the transport on purpose. Every transport gets the same retry behaviour, and none of
     /// them has to implement it — which also means retry semantics do not change when you swap one.
     /// </remarks>
-    private async Task<Exchange> SendWithRetriesAsync(
+    private static async Task<Exchange> SendWithRetriesAsync(
         IHttpTransport transport,
         TransportRequest request,
+        RetryOptions retry,
         CancellationToken cancellationToken)
     {
-        var retry = _options.Retry;
         var retryable = RetryPlanner.IsRetryable(retry, request);
         var attempt = 0;
 

@@ -69,3 +69,50 @@ internal interface ISearchClient
         [Query] SearchFilter filter,
         CancellationToken ct = default);
 }
+
+/// <summary>A filter whose property names exercise every word boundary the policies split on.</summary>
+internal sealed class ReportFilter
+{
+    public string? State { get; set; }
+
+    public int PerPage { get; set; }
+
+    /// <summary>An acronym run, which must stay one word rather than becoming <c>h_t_t_p</c>.</summary>
+    public string? HTTPReferer { get; set; }
+
+    /// <summary>A digit run, which is its own word.</summary>
+    public int Top10Items { get; set; }
+
+    /// <summary>Explicitly named, so no policy may touch it.</summary>
+    [Query("EXACT")]
+    public string? Exact { get; set; }
+}
+
+/// <summary>
+/// A client against an API that spells every key <c>snake_case</c> — a Python or Ruby backend,
+/// typically.
+/// </summary>
+[BaseAddress("https://api.example.com")]
+[QueryNaming(QueryNaming.SnakeCaseLower)]
+internal interface ISnakeCaseClient
+{
+    [Get("/reports")]
+    Task<Widget> ListAsync(
+        [Query] ReportFilter filter,
+        [Query] int pageNumber,
+        CancellationToken ct = default);
+
+    /// <summary>The one endpoint whose convention differs from its client's.</summary>
+    [Get("/legacy")]
+    Task<Widget> LegacyAsync(
+        [Query(Naming = QueryNaming.AsDeclared)] ReportFilter filter,
+        CancellationToken ct = default);
+}
+
+/// <summary>A client taking the default policy, for contrast.</summary>
+[BaseAddress("https://api.example.com")]
+internal interface IDefaultNamingClient
+{
+    [Get("/reports")]
+    Task<Widget> ListAsync([Query] ReportFilter filter, CancellationToken ct = default);
+}

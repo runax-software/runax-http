@@ -128,6 +128,25 @@ All packages in the repository are versioned together.
 
 ### Changed
 
+- **Query keys are camelCased from their identifiers by default**, and a `[QueryNaming]` policy
+  covers the API that follows another convention — `SnakeCaseLower` for a Python or Ruby backend,
+  plus the upper and kebab variants and `AsDeclared` for verbatim.
+  - camelCase because the body serializer already does it to the same type: a filter sent as
+    `[Body]` serializes to `{"perPage":…}`, so sending `?PerPage=` for the identical type would
+    have one library spelling one type two ways — and since most APIs want the camelCase one, the
+    alternative cost an attribute on nearly every property of every filter object.
+  - Applies to parameter names as well as object properties. A policy that transformed fields but
+    left parameters alone would leave half a query string in the other convention, which is worse
+    than either consistent choice. In practice the default changes nothing for parameters, since
+    C# parameter names are already camelCase; a non-camelCase one now camelCases, and
+    `[Query(Naming = QueryNaming.AsDeclared)]` keeps the 1.0 behaviour.
+  - An acronym run stays one word and a digit run is its own, so `HTTPReferer` is `http_referer`
+    rather than `h_t_t_p_referer`, and `Top10Items` is `top_10_items`.
+  - Applied by the generator, so every key is a literal in the emitted code and nothing is
+    transformed per request. Dictionary keys are left alone — those are data, not identifiers.
+  - Precedence is explicit `[Query("name")]`, then `[Query(Naming = …)]` on the parameter, then
+    `[QueryNaming]` on the interface, then camelCase.
+
 - **`RXH014` is retired and `RXH019` replaces it.** `RXH014` refused the two formats outright;
   there is nothing left for it to refuse. `RXH019` covers the real mistake instead: a body
   parameter whose type cannot be sent in the format it declared, including `Raw` with something

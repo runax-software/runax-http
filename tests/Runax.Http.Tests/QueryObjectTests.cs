@@ -46,23 +46,25 @@ public class QueryObjectTests
         // Not "?filter=SearchFilter { ... }".
         Query(transport).ShouldNotContain("filter=");
         Query(transport).ShouldContain("State=open");
-        Query(transport).ShouldContain("Page=2");
+        Query(transport).ShouldContain("page=2", Case.Sensitive);
     }
 
     [Fact]
-    public async Task A_property_name_is_sent_exactly_as_written()
+    public async Task A_property_name_is_camelCased_by_default()
     {
-        // Nothing in this library transforms a name: a [Query] parameter sends its parameter name
-        // verbatim, so a property has to behave the same way or the two rules disagree.
+        // Matching what the body serializer does to the same type. Sending PascalCase here while
+        // a [Body] of the identical type serializes to camelCase would make one library spell one
+        // type two ways, and most APIs want the camelCase one — so the default would have cost an
+        // attribute on nearly every property of every filter.
         var (client, transport) = Build();
 
         await client.SearchAsync(new SearchFilter { State = "open" });
 
-        Query(transport).ShouldContain("State=open");
+        Query(transport).ShouldContain("state=open", Case.Sensitive);
 
-        // Case-sensitively: Shouldly compares case-insensitively by default, which would let a
-        // lowercased key pass the very assertion meant to catch it.
-        Query(transport).ShouldNotContain("state=open", Case.Sensitive);
+        // Case-sensitively: Shouldly compares case-insensitively by default, which would let the
+        // untransformed key pass the very assertion meant to catch it.
+        Query(transport).ShouldNotContain("State=open", Case.Sensitive);
     }
 
     [Fact]
@@ -153,7 +155,7 @@ public class QueryObjectTests
 
         await client.SearchPointAsync(new PointFilter(3, 4));
 
-        Query(transport).ShouldBe("?X=3&Y=4");
+        Query(transport).ShouldBe("?x=3&y=4");
     }
 
     [Fact]
@@ -163,7 +165,7 @@ public class QueryObjectTests
 
         await client.SearchNullablePointAsync(new PointFilter(1, 2));
 
-        Query(transport).ShouldBe("?X=1&Y=2");
+        Query(transport).ShouldBe("?x=1&y=2");
     }
 
     [Fact]

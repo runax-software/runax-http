@@ -54,6 +54,19 @@ Task<Results> SearchAsync([Query] SearchFilter filter, CancellationToken ct = de
 A dictionary keyed by string works too, contributing its own keys. A type the runtime cannot turn
 into text is a build error rather than a `ToString()` sent to your server.
 
+### Query key naming
+
+Keys are camelCased from their identifiers by default, matching what the body serializer does to
+the same type. For an API that spells everything another way:
+
+```csharp
+[QueryNaming(QueryNaming.SnakeCaseLower)]   // ?per_page=50&http_referer=…
+public interface IReportClient { }
+```
+
+`SnakeCaseLower/Upper`, `KebabCaseLower/Upper`, `AsDeclared`. An explicit `[Query("name")]` always
+wins, and the transformation happens at compile time so nothing is renamed per request.
+
 ## Return types
 
 | Signature | Behaviour |

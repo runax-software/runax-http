@@ -115,6 +115,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
             return new AnalysisResult(null, null, diagnostics.ToImmutable());
         }
 
+        var queryNaming = ReadQueryNaming(contract);
         var baseAddress = ReadBaseAddress(contract, diagnostics);
         var transportName = ReadTransportName(contract);
         var defaultHeaders = ReadConstantHeaders(contract);
@@ -128,7 +129,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
             {
                 case IMethodSymbol { MethodKind: MethodKind.Ordinary } method:
                     {
-                        var methodModel = AnalyzeMethod(method, diagnostics);
+                        var methodModel = AnalyzeMethod(method, queryNaming, diagnostics);
                         if (methodModel is not null)
                             methods.Add(methodModel);
 
@@ -186,6 +187,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
 
     private static MethodModel? AnalyzeMethod(
         IMethodSymbol method,
+        string queryNaming,
         ImmutableArray<Diagnostic>.Builder diagnostics)
     {
         var requestAttribute = FindRequestAttribute(method);
@@ -243,7 +245,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
             return null;
         }
 
-        var parameters = AnalyzeParameters(method, template, diagnostics, out var bodyFormat);
+        var parameters = AnalyzeParameters(method, queryNaming, template, diagnostics, out var bodyFormat);
 
         ValidatePlaceholders(method, template, parameters, diagnostics);
 
@@ -273,6 +275,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
 
     private static ImmutableArray<ParameterModel> AnalyzeParameters(
         IMethodSymbol method,
+        string queryNaming,
         string template,
         ImmutableArray<Diagnostic>.Builder diagnostics,
         out string? bodyFormat)
@@ -358,7 +361,16 @@ public sealed class ClientGenerator : IIncrementalGenerator
                 }
             }
 
-            var wireName = ReadWireName(attribute) ?? parameter.Name;
+            // A policy applies to the derived name only; an explicit [Query("name")] is the
+            // author stating the key outright and is never transformed.
+            var effectiveNaming = binding == ParameterBinding.Query
+                ? ReadParameterQueryNaming(attribute) ?? queryNaming
+                : QueryNameFormatter.AsDeclared;
+
+            var wireName = ReadWireName(attribute)
+                           ?? (binding == ParameterBinding.Query
+                               ? QueryNameFormatter.Apply(parameter.Name, effectiveNaming)
+                               : parameter.Name);
 
             if (binding == ParameterBinding.Query)
             {
@@ -396,7 +408,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
                     binding,
                     typeName,
                     shape,
-                    BuildQueryFields(parameter, fields)));
+                    BuildQueryFields(parameter, fields, effectiveNaming)));
 
                 continue;
             }
@@ -988,7 +1000,8 @@ public sealed class ClientGenerator : IIncrementalGenerator
     /// </remarks>
     private static ImmutableArray<QueryFieldModel> BuildQueryFields(
         IParameterSymbol parameter,
-        ImmutableArray<IPropertySymbol> properties)
+        ImmutableArray<IPropertySymbol> properties,
+        string queryNaming)
     {
         if (properties.IsDefaultOrEmpty)
             return ImmutableArray<QueryFieldModel>.Empty;
@@ -1005,12 +1018,59 @@ public sealed class ClientGenerator : IIncrementalGenerator
         foreach (var property in properties)
         {
             fields.Add(new QueryFieldModel(
-                ReadPropertyWireName(property) ?? property.Name,
+                ReadPropertyWireName(property)
+                ?? QueryNameFormatter.Apply(property.Name, queryNaming),
                 $"{parameter.Name}{accessor}{property.Name}"));
         }
 
         return fields.ToImmutable();
     }
+
+    /// <summary>
+    /// The naming convention an interface declares with <c>[QueryNaming]</c>, or camelCase.
+    /// </summary>
+    private static string ReadQueryNaming(ISymbol symbol)
+    {
+        foreach (var attribute in symbol.GetAttributes())
+        {
+            if (attribute.AttributeClass?.ToDisplayString() == $"{AttributesNamespace}.QueryNamingAttribute"
+                && attribute.ConstructorArguments.Length == 1)
+            {
+                return NamingMemberName(attribute.ConstructorArguments[0].Value);
+            }
+        }
+
+        return QueryNameFormatter.CamelCase;
+    }
+
+    /// <summary>
+    /// The convention a <c>[Query(Naming = …)]</c> names, or <see langword="null"/> when it does
+    /// not name one and the interface's policy should apply.
+    /// </summary>
+    private static string? ReadParameterQueryNaming(AttributeData attribute)
+    {
+        foreach (var named in attribute.NamedArguments)
+        {
+            if (named.Key == "Naming")
+                return NamingMemberName(named.Value.Value);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The <c>QueryNaming</c> member name for an attribute argument, which arrives as its
+    /// underlying integer.
+    /// </summary>
+    private static string NamingMemberName(object? value) => value switch
+    {
+        1 => QueryNameFormatter.AsDeclared,
+        2 => QueryNameFormatter.SnakeCaseLower,
+        3 => QueryNameFormatter.SnakeCaseUpper,
+        4 => QueryNameFormatter.KebabCaseLower,
+        5 => QueryNameFormatter.KebabCaseUpper,
+        _ => QueryNameFormatter.CamelCase
+    };
 
     /// <summary>A property's <c>[Query("name")]</c> rename, if it carries one.</summary>
     private static string? ReadPropertyWireName(IPropertySymbol property)

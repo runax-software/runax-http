@@ -25,8 +25,21 @@ jobs:
             9.0.x
             10.0.x
 
+      # The job runs in the `nuget` environment (declared above), which is where NUGET_USER lives.
+      # Checked explicitly because an empty value does not fail the login step cleanly: it fails
+      # inside NuGet/login with a message about the token rather than about the missing variable,
+      # and that is a confusing thing to debug on the one workflow run that publishes a release.
+      - name: Check the publishing identity is configured
+        run: |
+          if [ -z "${{ vars.NUGET_USER }}" ]; then
+            echo "::error::NUGET_USER is not set. Add it as a variable on the 'nuget' environment"
+            echo "::error::(Settings -> Environments -> nuget -> Environment variables)."
+            exit 1
+          fi
+
       # Exchanges the GitHub OIDC token for a short-lived nuget.org API key.
-      # Requires a Trusted Publishing policy on nuget.org for this repo/workflow.
+      # Requires a Trusted Publishing policy on nuget.org for this repo/workflow, under the
+      # NUGET_USER account.
       - name: NuGet login (OIDC)
         id: login
         uses: NuGet/login@v1

@@ -157,6 +157,24 @@ least as new as the Roslyn it was built against, so raising
 - Keep methods focused and small
 - Prefer a build error over a runtime one. If the generator can catch a mistake, it should.
 
+## Releasing
+
+Publishing is driven by a published GitHub release, not by a push. The tag names the version:
+`v0.1.0-alpha.1` publishes `0.1.0-alpha.1`.
+
+The workflow runs in the `nuget` environment, which is where the publishing identity lives:
+
+- **`NUGET_USER`** — an environment variable on `nuget`, the nuget.org account the Trusted
+  Publishing policy belongs to. The workflow checks it is set before doing anything, because an
+  empty value fails inside the login action with a message about the token rather than about the
+  missing variable.
+- A **Trusted Publishing policy** on nuget.org for this repository and `publish.yml`, under that
+  account. No API key is stored anywhere: the workflow exchanges a GitHub OIDC token for a
+  short-lived one.
+
+The environment is also the place to add a required reviewer if you want a human gate before a
+release reaches NuGet. Worth considering: a published version can be unlisted but never removed.
+
 ## Questions?
 
 Open a [GitHub Discussion](https://github.com/runax-software/runax-http/discussions) or an issue.

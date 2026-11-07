@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Test support for Runax.Http: a recording transport and a harness that stands up a generated client without a socket, so you can assert on the request your client would have sent.</Description>
+    <PackageTags>$(PackageTags);testing</PackageTags>
+
+    <!-- Not claimed as AOT-compatible, and not analysed as such. This is a test-support package:
+         it is referenced by test assemblies, which are not trimmed or AOT-published, and it uses
+         the reflection-based JSON default on purpose so that tests do not need a serializer
+         context. Marking it compatible would be a claim nobody can use and this package cannot
+         honestly make. -->
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Runax.Http.Abstractions/Runax.Http.Abstractions.csproj" />
+    <ProjectReference Include="../Runax.Http/Runax.Http.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Runax.Http.TestKit.Tests" />
+  </ItemGroup>
+</Project>

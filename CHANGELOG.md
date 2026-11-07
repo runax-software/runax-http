@@ -19,6 +19,26 @@ All packages in the repository are versioned together.
 
 ### Added
 
+- **`Runax.Http.TestKit`** — `RunaxClientHarness.For<TContract>()` stands up a real container, the
+  real generated client and the real runtime over a `TestTransport` that records instead of sending.
+  - A transport rather than a mock, because that is where the interesting state is. Mocking the
+    client interface tests nothing about your attributes — a path template with a typo passes — and
+    mocking the executor tests nothing about the generated code. Almost everything a client does
+    happens before a byte would reach the network, so the request that came out is the thing worth
+    asserting, and the transport boundary is the only place it exists.
+  - `RecordedRequest` reads back the method, URI, path, decoded query values (including repeated
+    keys, which a single-value accessor would silently lose), headers and the body as text.
+  - Responses are queued with `Responds`/`RespondsJson`/`RespondsStatus`, or answered in bulk with
+    `AlwaysResponds`; `FailsOnce()` simulates a request that never reached a server, which is what
+    retry tests need and no status code can express. An unscripted request throws saying so rather
+    than returning an empty 200 that fails the test somewhere unrelated.
+  - Claims every capability by default so the capability check never fails a test that was about
+    something else, and can be narrowed when the check is the point.
+  - Supplies a base address when neither the interface nor the caller does, and defaults to
+    reflection-based JSON on purpose. The package is therefore **not** marked AOT-compatible: it is
+    referenced by test assemblies, which are not trimmed, and claiming otherwise would be a promise
+    nobody can use.
+
 - **`Runax.Http.Transports.RestSharp`** — the second transport, and the thing that turns "swappable"
   from a claim into a tested property. The same client interface runs over it or over `HttpClient`
   with nothing above `IHttpTransport` changing.

@@ -7,6 +7,7 @@
     <Project Path="tests\Runax.Http.AotSmoke\Runax.Http.AotSmoke.csproj" Type="Classic C#" />
     <Project Path="tests\Runax.Http.Tests\Runax.Http.Tests.csproj" Type="Classic C#" />
     <Project Path="tests\Runax.Http.SourceGenerator.Tests\Runax.Http.SourceGenerator.Tests.csproj" Type="Classic C#" />
+    <Project Path="tests\Runax.Http.TestKit.Tests\Runax.Http.TestKit.Tests.csproj" Type="Classic C#" />
     <Project Path="tests\Runax.Http.Transports.Conformance\Runax.Http.Transports.Conformance.csproj" Type="Classic C#" />
     <Project Path="tests\Runax.Http.Transports.RestSharp.Tests\Runax.Http.Transports.RestSharp.Tests.csproj" Type="Classic C#" />
     <Project Path="tests\Runax.Http.Abstractions.Tests\Runax.Http.Abstractions.Tests.csproj" Type="Classic C#" />
@@ -14,5 +15,6 @@
   <Project Path="src\Runax.Http.Abstractions\Runax.Http.Abstractions.csproj" Type="Classic C#" />
   <Project Path="src\Runax.Http\Runax.Http.csproj" Type="Classic C#" />
   <Project Path="src\Runax.Http.SourceGenerator\Runax.Http.SourceGenerator.csproj" Type="Classic C#" />
+  <Project Path="src\Runax.Http.TestKit\Runax.Http.TestKit.csproj" Type="Classic C#" />
   <Project Path="src\Runax.Http.Transports.RestSharp\Runax.Http.Transports.RestSharp.csproj" Type="Classic C#" />
 </Solution>

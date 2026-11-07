@@ -58,8 +58,9 @@ effort. Nothing here is a commitment to a date.
   assertions that the emitted code compiles cleanly, keeps nullable annotations, registers itself
   and contains nothing reflective.
 
-- [ ] **`Runax.Http.TestKit`** — a recording transport, so consumers can assert the request
-  their client would have sent without a socket.
+- [x] **`Runax.Http.TestKit`** — a recording transport and a harness that stands up the real
+  generated client and runtime over it, so consumers assert on the request their client built
+  rather than on a mock that skips the code under test.
 - [x] **Retries** — configurable per client and off by default, above the transport boundary so
   every transport gets the same behaviour. Exponential/linear/constant backoff with jitter,
   `Retry-After` honoured, idempotent methods only unless asked otherwise, and never for a body

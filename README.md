@@ -89,7 +89,7 @@ above that boundary, so they are written once rather than once per transport.
 | `Runax.Http.Abstractions` | built | Attributes and the transport-neutral contracts. Zero dependencies — the BCL and nothing else. |
 | `Runax.Http` | built | The source generator, DI wiring, the request runtime, and the `HttpClient` transport. |
 | `Runax.Http.Transports.RestSharp` | built | RestSharp transport. Passes the same conformance suite, with a different capability set. |
-| `Runax.Http.TestKit` | planned | A recording in-process transport: assert what your client would have sent, no sockets. |
+| `Runax.Http.TestKit` | built | A recording transport and a harness: assert what your client would have sent, no sockets. |
 
 `HttpClient` ships inside `Runax.Http` rather than as a separate transport package. The rule
 behind the split is that no package forces a third-party dependency on you — and `HttpClient`

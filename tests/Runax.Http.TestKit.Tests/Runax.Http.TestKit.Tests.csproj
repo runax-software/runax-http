@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../src/Runax.Http.TestKit/Runax.Http.TestKit.csproj" />
+  </ItemGroup>
+
+  <!-- The TestKit is tested against a generated client, so this project needs the generator. -->
+  <ItemGroup>
+    <ProjectReference Include="../../src/Runax.Http.SourceGenerator/Runax.Http.SourceGenerator.csproj"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Analyzer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+</Project>

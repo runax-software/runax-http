@@ -17,6 +17,7 @@ New to it? Read the [root README](../README.md) for the pitch, then
 | [Capabilities](capabilities.md) | What HTTP libraries disagree about, how a request's requirements are derived, and the rule that a transport may throw or degrade but never pretend |
 | [Retries](retries.md) | Turning them on, the backoff curve, `Retry-After`, and the three defaults that are safety decisions rather than taste |
 | [Serialization](serialization.md) | `IContentSerializer`, why no serializer is registered by default, source-generated JSON, per-client overrides |
+| [Testing](testing.md) | `Runax.Http.TestKit`: a recording transport and a harness that stands up a real client without a socket, so you can assert on the request it built |
 | [Configuration](configuration.md) | Every option on both builders, ordering guarantees, reading from `IConfiguration`, and using the runtime without a container |
 
 ## Reference
@@ -35,11 +36,11 @@ New to it? Read the [root README](../README.md) for the pitch, then
   for transport authors and shared contract assemblies
 - [Runax.Http.Transports.RestSharp](../src/Runax.Http.Transports.RestSharp/README.md) — the
   RestSharp transport, and a capability table showing where it differs from `HttpClient`
+- [Runax.Http.TestKit](../src/Runax.Http.TestKit/README.md) — test support
 
 ## Not written yet
 
 Pages arrive with the features they describe, so there is nothing here that documents something you
 cannot use. Still to come, tracked on the [roadmap](../ROADMAP.md):
 
-- **Testing** — waiting on `Runax.Http.TestKit`
 - **Observability** — waiting on the tracing and metrics work

@@ -52,6 +52,52 @@ Rename with the attribute when the wire name is not a legal or idiomatic C# name
 [Path("name")] string repository
 ```
 
+### Query key naming
+
+A query key is **camelCased** from its identifier by default — parameter names and the property
+names of an expanded query object alike. That matches what the body serializer does to the same
+type: a filter sent as `[Body]` serializes to `{"perPage":…}`, so sending `?PerPage=` for the
+identical type would have one library spelling one type two ways.
+
+For an API that follows a different convention throughout — a Python or Ruby backend spelling
+everything `snake_case` is the usual reason — set it once on the interface:
+
+```csharp
+[BaseAddress("https://api.example.com")]
+[QueryNaming(QueryNaming.SnakeCaseLower)]
+public interface IReportClient
+{
+    [Get("/reports")]
+    Task<Report[]> ListAsync([Query] int perPage, [Query] ReportFilter filter, CancellationToken ct = default);
+    // ?per_page=50&state=open&date_from=…
+}
+```
+
+| Policy | `PerPage` | `HTTPReferer` | `Top10Items` |
+| --- | --- | --- | --- |
+| `CamelCase` *(default)* | `perPage` | `httpReferer` | `top10Items` |
+| `SnakeCaseLower` | `per_page` | `http_referer` | `top_10_items` |
+| `SnakeCaseUpper` | `PER_PAGE` | `HTTP_REFERER` | `TOP_10_ITEMS` |
+| `KebabCaseLower` | `per-page` | `http-referer` | `top-10-items` |
+| `KebabCaseUpper` | `PER-PAGE` | `HTTP-REFERER` | `TOP-10-ITEMS` |
+| `AsDeclared` | `PerPage` | `HTTPReferer` | `Top10Items` |
+
+An acronym run stays one word, and a digit run is its own — `h_t_t_p_referer` is what a naive
+"uppercase starts a word" split produces and nobody spells an API that way.
+
+Most specific wins, as elsewhere: an explicit `[Query("name")]` on a parameter or property beats
+everything, then `[Query(Naming = …)]` on the parameter, then `[QueryNaming]` on the interface.
+
+The policy applies to parameters **and** object properties. A policy that transformed object
+fields but left parameter names alone would leave half the query string in the other convention,
+which is worse than either consistent choice.
+
+Dictionary keys are never transformed — those are data you chose, not an identifier the generator
+derived.
+
+The transformation happens at compile time, so every key in the generated code is a literal and
+nothing is transformed per request. `AsDeclared` is not a performance choice.
+
 ### Collections and nulls
 
 A `[Query]` parameter that is a collection expands to one repeated key per item:

@@ -73,6 +73,11 @@ in your service, and something with heavier cookie, proxy or TLS control for an 
 doesn't want to be talked to. Today that means two clients and two sets of models. Here it
 means one interface and a different transport name.
 
+An API that answers with a different shape per status code — or one that always answers 200 and
+puts the failure in the body — is described with `[Response]` and returns `ApiResult`, which
+discriminates on the status, a JSON property or a header. Retries are built in and off by default:
+`WithRetry(3)`.
+
 The generated code never references a specific HTTP library. It builds a transport-neutral
 request and hands it to `IHttpTransport`. Serialization, retries, logging and auth all sit
 above that boundary, so they are written once rather than once per transport.

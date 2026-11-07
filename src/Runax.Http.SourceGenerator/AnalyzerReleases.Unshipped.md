@@ -23,3 +23,7 @@ RXH011  | Runax.Http | Error    | [BaseAddress] must be an absolute URI
 RXH012  | Runax.Http | Error    | Two parameters are bound to the same placeholder
 RXH013  | Runax.Http | Error    | Client interfaces can only declare methods
 RXH014  | Runax.Http | Error    | This body format is not implemented yet
+RXH015  | Runax.Http | Error    | [Response] requires a Task<ApiResult> return type
+RXH016  | Runax.Http | Error    | Task<ApiResult> requires at least one [Response]
+RXH017  | Runax.Http | Error    | Two responses match the same condition
+RXH018  | Runax.Http | Warning  | This response can never match

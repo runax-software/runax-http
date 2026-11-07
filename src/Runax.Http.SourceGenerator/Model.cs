@@ -48,6 +48,58 @@ internal sealed class ParameterModel
     internal string TypeName { get; }
 }
 
+/// <summary>One <c>[Response]</c> declaration: a condition, and the type to use when it holds.</summary>
+internal sealed class ResponseModel
+{
+    internal ResponseModel(
+        string typeName,
+        int? statusCode,
+        int? minStatusCode,
+        int? maxStatusCode,
+        string? jsonProperty,
+        string? jsonPropertyEquals,
+        string? header,
+        string? headerEquals)
+    {
+        TypeName = typeName;
+        StatusCode = statusCode;
+        MinStatusCode = minStatusCode;
+        MaxStatusCode = maxStatusCode;
+        JsonProperty = jsonProperty;
+        JsonPropertyEquals = jsonPropertyEquals;
+        Header = header;
+        HeaderEquals = headerEquals;
+    }
+
+    /// <summary>The fully qualified type the body is deserialized into.</summary>
+    internal string TypeName { get; }
+
+    internal int? StatusCode { get; }
+
+    internal int? MinStatusCode { get; }
+
+    internal int? MaxStatusCode { get; }
+
+    internal string? JsonProperty { get; }
+
+    internal string? JsonPropertyEquals { get; }
+
+    internal string? Header { get; }
+
+    internal string? HeaderEquals { get; }
+
+    /// <summary>
+    /// Whether this matches anything. An unconditional response is the fallback, so it belongs
+    /// last — anything after it can never run.
+    /// </summary>
+    internal bool IsUnconditional
+        => StatusCode is null
+           && MinStatusCode is null
+           && MaxStatusCode is null
+           && JsonProperty is null
+           && Header is null;
+}
+
 /// <summary>How the response maps onto the method's declared return type.</summary>
 internal enum ResultShape
 {
@@ -61,7 +113,13 @@ internal enum ResultShape
     ApiResponse,
 
     /// <summary>Returns <c>Task&lt;ApiResponse&lt;T&gt;&gt;</c>.</summary>
-    ApiResponseOfContent
+    ApiResponseOfContent,
+
+    /// <summary>
+    /// Returns <c>Task&lt;ApiResult&gt;</c>: the type is chosen at run time from the declared
+    /// <c>[Response]</c> conditions.
+    /// </summary>
+    ApiResult
 }
 
 /// <summary>One client method.</summary>
@@ -77,6 +135,7 @@ internal sealed class MethodModel
         string? transportName,
         ImmutableArray<ParameterModel> parameters,
         ImmutableArray<KeyValuePair<string, string>> constantHeaders,
+        ImmutableArray<ResponseModel> responses,
         string bodyFormat)
     {
         Name = name;
@@ -88,6 +147,7 @@ internal sealed class MethodModel
         TransportName = transportName;
         Parameters = parameters;
         ConstantHeaders = constantHeaders;
+        Responses = responses;
         BodyFormat = bodyFormat;
     }
 
@@ -112,6 +172,12 @@ internal sealed class MethodModel
 
     /// <summary>Headers declared with a constant value on the method.</summary>
     internal ImmutableArray<KeyValuePair<string, string>> ConstantHeaders { get; }
+
+    /// <summary>
+    /// The <c>[Response]</c> declarations, in source order. Order is significant: the first whose
+    /// conditions hold wins.
+    /// </summary>
+    internal ImmutableArray<ResponseModel> Responses { get; }
 
     /// <summary>The <c>BodyFormat</c> member name for the body parameter, if there is one.</summary>
     internal string BodyFormat { get; }

@@ -102,6 +102,32 @@ internal static class Diagnostics
         + "or BodyFormat.Raw with a string, byte[] or Stream, and build the form or multipart body "
         + "yourself for now. Tracked on the roadmap rather than silently sent as JSON.");
 
+    internal static readonly DiagnosticDescriptor ResponseNeedsApiResult = Error(
+        "RXH015",
+        "[Response] requires a Task<ApiResult> return type",
+        "'{0}' carries [Response] but returns '{1}'. A method that describes more than one possible "
+        + "response shape has to return Task<ApiResult>, because that is the only return type that "
+        + "can hold whichever one arrived.");
+
+    internal static readonly DiagnosticDescriptor ApiResultNeedsResponse = Error(
+        "RXH016",
+        "Task<ApiResult> requires at least one [Response]",
+        "'{0}' returns Task<ApiResult> but declares no [Response], so every call would come back "
+        + "unmatched. Add a [Response(...)] per shape the API can answer with.");
+
+    internal static readonly DiagnosticDescriptor DuplicateResponseCondition = Error(
+        "RXH017",
+        "Two responses match the same condition",
+        "'{0}' declares more than one [Response] for {1}. The first one wins and the rest can never "
+        + "run, so which type a response deserializes to would depend on declaration order rather "
+        + "than on anything visible at the call site.");
+
+    internal static readonly DiagnosticDescriptor UnreachableResponse = Warning(
+        "RXH018",
+        "This response can never match",
+        "'{0}' declares a [Response] after an unconditional one, which matches everything. Move the "
+        + "unconditional [Response] last, since it is the fallback.");
+
     private static DiagnosticDescriptor Error(string id, string title, string format)
         => new(id, title, format, Category, DiagnosticSeverity.Error, isEnabledByDefault: true);
 

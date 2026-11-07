@@ -152,6 +152,12 @@ internal static class Emitter
 
     private static void EmitDispatch(StringBuilder code, MethodModel method, string token, string indent)
     {
+        if (method.Shape == ResultShape.ApiResult)
+        {
+            EmitResultDispatch(code, method, token, indent);
+            return;
+        }
+
         switch (method.Shape)
         {
             case ResultShape.Empty:
@@ -170,6 +176,85 @@ internal static class Emitter
                 code.AppendLine($"{indent}return (await _executor.SendAsync<{method.ContentTypeName}>(__request, {token}).ConfigureAwait(false))!;");
                 break;
         }
+    }
+
+    /// <summary>
+    /// Reads the whole response, then walks the declared responses in source order and
+    /// deserializes the first whose conditions hold.
+    /// </summary>
+    /// <remarks>
+    /// Each branch names a concrete type, so choosing at run time costs nothing in reflection —
+    /// the decision is dynamic, the deserialization is not.
+    /// </remarks>
+    private static void EmitResultDispatch(
+        StringBuilder code,
+        MethodModel method,
+        string token,
+        string indent)
+    {
+        code.AppendLine($"{indent}var __envelope = await _executor.SendForEnvelopeAsync(__request, {token}).ConfigureAwait(false);");
+
+        var hasFallback = false;
+
+        foreach (var response in method.Responses)
+        {
+            code.AppendLine();
+
+            if (response.IsUnconditional)
+            {
+                hasFallback = true;
+                code.AppendLine($"{indent}return await _executor.ToResultAsync<{response.TypeName}>(__envelope, {token}).ConfigureAwait(false);");
+
+                break;
+            }
+
+            code.AppendLine($"{indent}if ({BuildCondition(response)})");
+            code.AppendLine($"{indent}    return await _executor.ToResultAsync<{response.TypeName}>(__envelope, {token}).ConfigureAwait(false);");
+        }
+
+        if (hasFallback)
+            return;
+
+        code.AppendLine();
+        code.AppendLine($"{indent}// Nothing declared matched. The body is kept on the result so the caller can see");
+        code.AppendLine($"{indent}// what arrived instead, which is the only clue as to what [Response] is missing.");
+        code.AppendLine($"{indent}return _executor.Unmatched(__envelope);");
+    }
+
+    /// <summary>
+    /// Builds the condition for one declared response. Several conditions on one attribute are
+    /// combined with AND: they describe one response, not alternatives.
+    /// </summary>
+    private static string BuildCondition(ResponseModel response)
+    {
+        var tests = new List<string>();
+
+        if (response.StatusCode is { } status)
+            tests.Add($"__envelope.HasStatus({status})");
+
+        if (response.MinStatusCode is not null || response.MaxStatusCode is not null)
+        {
+            var low = response.MinStatusCode ?? 0;
+            var high = response.MaxStatusCode ?? 999;
+
+            tests.Add($"__envelope.HasStatusInRange({low}, {high})");
+        }
+
+        if (response.JsonProperty is { } property)
+        {
+            tests.Add(response.JsonPropertyEquals is { } expected
+                ? $"__envelope.JsonPropertyEquals({Literal(property)}, {Literal(expected)})"
+                : $"__envelope.HasJsonProperty({Literal(property)})");
+        }
+
+        if (response.Header is { } header)
+        {
+            tests.Add(response.HeaderEquals is { } headerValue
+                ? $"__envelope.HeaderEquals({Literal(header)}, {Literal(headerValue)})"
+                : $"__envelope.HasHeader({Literal(header)})");
+        }
+
+        return string.Join(" && ", tests);
     }
 
     private static void EmitPairs(

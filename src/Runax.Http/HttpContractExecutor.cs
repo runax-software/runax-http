@@ -101,6 +101,87 @@ public sealed class HttpContractExecutor : IHttpContractExecutor
         };
     }
 
+    /// <inheritdoc />
+    public async Task<ResponseEnvelope> SendForEnvelopeAsync(
+        ClientRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await SendCoreAsync(request, cancellationToken).ConfigureAwait(false);
+
+        var content = await ReadToEndAsync(response.Transport, cancellationToken).ConfigureAwait(false);
+
+        return new ResponseEnvelope(response.Transport.StatusCode, content)
+        {
+            ReasonPhrase = response.Transport.ReasonPhrase,
+            Headers = response.Transport.Headers,
+            TransportName = response.TransportName,
+            RequestUri = response.RequestUri,
+            Method = request.Method
+        };
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<ApiResult> ToResultAsync<T>(
+        ResponseEnvelope envelope,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+
+        T? value = default;
+
+        if (!envelope.Content.IsEmpty)
+        {
+            using var stream = new MemoryStream(
+                envelope.Content.ToArray(), writable: false);
+
+            value = await _serializer
+                .DeserializeAsync<T>(stream, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return new ApiResult(envelope.StatusCode)
+        {
+            ReasonPhrase = envelope.ReasonPhrase,
+            Headers = envelope.Headers,
+            TransportName = envelope.TransportName,
+            Value = value,
+
+            // Set even when the body was empty, so a 204 that matched a declared response is
+            // distinguishable from a response nothing matched at all.
+            ValueType = typeof(T)
+        };
+    }
+
+    /// <inheritdoc />
+    public ApiResult Unmatched(ResponseEnvelope envelope)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+
+        return new ApiResult(envelope.StatusCode)
+        {
+            ReasonPhrase = envelope.ReasonPhrase,
+            Headers = envelope.Headers,
+            TransportName = envelope.TransportName,
+
+            // The body is the only clue as to what the API actually sent, and therefore what
+            // [Response] is missing. Kept here and nowhere else.
+            UnmatchedContent = envelope.ReadAsString()
+        };
+    }
+
+    private static async Task<ReadOnlyMemory<byte>> ReadToEndAsync(
+        TransportResponse response,
+        CancellationToken cancellationToken)
+    {
+        if (response.Content is null)
+            return ReadOnlyMemory<byte>.Empty;
+
+        using var buffer = new MemoryStream();
+        await response.Content.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
+
+        return buffer.ToArray();
+    }
+
     private async Task<Exchange> SendCoreAsync(ClientRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);

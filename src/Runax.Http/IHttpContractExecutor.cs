@@ -64,6 +64,42 @@ public interface IHttpContractExecutor
     Task<ApiResponse> SendForApiResponseAsync(ClientRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sends a request and reads the whole response, so the type to deserialize it as can be
+    /// chosen by looking at it.
+    /// </summary>
+    /// <param name="request">The request to send.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The response with its body buffered.</returns>
+    /// <exception cref="TransportException">The request did not complete.</exception>
+    /// <remarks>
+    /// Used by methods carrying <see cref="ResponseAttribute"/>. Buffering is what lets a
+    /// discriminator in the body pick the type; the <see cref="SendAsync{T}"/> path streams
+    /// instead and does not pay for it.
+    /// </remarks>
+    Task<ResponseEnvelope> SendForEnvelopeAsync(
+        ClientRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deserializes an already-read response as <typeparamref name="T"/> and wraps it in a result.
+    /// </summary>
+    /// <typeparam name="T">The type the matching <see cref="ResponseAttribute"/> named.</typeparam>
+    /// <param name="envelope">The response.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The result.</returns>
+    ValueTask<ApiResult> ToResultAsync<T>(
+        ResponseEnvelope envelope,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Builds a result for a response that no declared <see cref="ResponseAttribute"/> matched,
+    /// keeping the body so the caller can see what arrived instead.
+    /// </summary>
+    /// <param name="envelope">The response.</param>
+    /// <returns>The result, with <see cref="ApiResult.Matched"/> false.</returns>
+    ApiResult Unmatched(ResponseEnvelope envelope);
+
+    /// <summary>
     /// Sends a request and returns the outcome, with any body deserialized, as a value rather than
     /// throwing on an error status.
     /// </summary>

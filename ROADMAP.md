@@ -42,6 +42,12 @@ effort. Nothing here is a commitment to a date.
 
 ## Milestone 2 remainder
 
+- [x] **Run-time response dispatch** — `[Response]` plus `ApiResult`, for an API with a different
+  shape per status code and for one that always answers 200 and puts the outcome in the body.
+  Discriminates on status, status range, a top-level JSON property (presence or value), or a
+  header. Each branch names a concrete type, so the decision is dynamic and the deserialization
+  is not.
+
 - [ ] **`BodyFormat.UrlEncoded` and `BodyFormat.Multipart`** — currently `RXH014`, a build error
   saying they are not emitted yet, rather than silently sent as JSON.
 

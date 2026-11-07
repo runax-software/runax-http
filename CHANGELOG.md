@@ -55,6 +55,28 @@ All packages in the repository are versioned together.
     context needs no reflection. `AddRunaxHttp()` registers no serializer by default: the
     convenient reflection-based one is one explicit call that carries a trimming warning, rather
     than a silent default that opts every application out of AOT.
+- **`[Response]` and `ApiResult`** — a response type chosen at run time, for the two cases a single
+  return type cannot express.
+  - **A different shape per status code**: `[Response(200, typeof(Widget))]`,
+    `[Response(404, typeof(NotFound))]`, or a whole class at once with
+    `MinStatusCode`/`MaxStatusCode`.
+  - **An API that answers 200 whatever happened** and puts the outcome in the body. A status code
+    cannot tell those apart, so discriminate on a top-level JSON property — presence
+    (`WhenJsonProperty`) or value (`WhenJsonPropertyEquals`, which compares against the JSON
+    spelling so `"false"` matches `"success": false`) — or on a header. Without this a client
+    deserializes an error envelope into the success type and hands back an object with default
+    fields, which looks like success until the fields get used.
+  - The first declaration whose conditions hold wins, in source order, and conditions on one
+    attribute are ANDed. Order rather than a specificity rule, so which response wins is visible
+    in the source instead of depending on which overlapping condition the library considers
+    narrower. `RXH018` warns about a declaration placed after an unconditional one.
+  - Nothing is guessed: an undeclared response leaves `Matched` false and the raw body on
+    `UnmatchedContent`. Nothing throws either — a method declaring `ApiResult` has said an error
+    status is an expected answer — with `Require<T>()` for the call site that wants it loud.
+  - Each branch names a concrete type, so the decision is dynamic but the deserialization is not,
+    and the whole path is exercised by the native-AOT smoke test. It does buffer the body, which
+    the streaming `Task<T>` path avoids; that is the price of deciding from the content.
+  - Four new diagnostics, `RXH015`–`RXH018`.
 - **Retries**, off by default and configurable per client with `WithRetry(3)` or
   `WithRetry(options => ...)`: attempt count, base and maximum delay, constant/linear/exponential
   backoff, jitter, `Retry-After` handling, and which status codes count. They sit above the

@@ -99,6 +99,70 @@ resolved, naming the client and listing what *is* registered — rather than sur
 request first asks for it. Names from `[Transport]` on a method are checked the same way, so a
 typo on a rarely called method does not lie dormant.
 
+## When one return type isn't enough
+
+Two cases the table above can't express.
+
+**A different shape per status code.** Declare one per outcome and return `ApiResult`:
+
+```csharp
+[Get("/widgets/{id}")]
+[Response(200, typeof(Widget))]
+[Response(404, typeof(NotFound))]
+[Response(422, typeof(ValidationProblem))]
+[Response(typeof(ServerError), MinStatusCode = 500, MaxStatusCode = 599)]
+Task<ApiResult> GetAsync(int id, CancellationToken ct = default);
+```
+
+**An API that answers 200 whatever happened** and puts the outcome in the body. This is common, it
+is not going to be fixed, and a status code cannot tell these apart — so discriminate on the body
+or a header instead:
+
+```csharp
+[Get("/legacy/widgets/{id}")]
+[Response(typeof(ApiError), WhenJsonProperty = "error")]
+[Response(typeof(ApiError), WhenJsonProperty = "success", WhenJsonPropertyEquals = "false")]
+[Response(typeof(ApiError), WhenHeader = "X-Error")]
+[Response(typeof(Widget))]                                  // whatever is left
+Task<ApiResult> GetLegacyAsync(int id, CancellationToken ct = default);
+```
+
+Without this, a client deserializes that error envelope into a `Widget` and hands the caller an
+object with default fields — a failure that looks like success all the way to wherever the fields
+get used.
+
+Reading the result is a pattern match, which is how the static typing comes back:
+
+```csharp
+var result = await client.GetAsync(id);
+
+return result.Value switch
+{
+    Widget widget       => Ok(widget),
+    ValidationProblem p => BadRequest(p),
+    NotFound            => NotFound(),
+    _                   => Problem($"Unrecognized: {result.UnmatchedContent}")
+};
+```
+
+Or `result.Require<Widget>()` at the point where you want the failure to be loud, and
+`TryGet<T>` / `Is<T>` in between.
+
+A few rules worth knowing:
+
+- **Order decides.** The first `[Response]` whose conditions all hold wins, in the order written.
+  A specificity rule would mean guessing which of two overlapping conditions the library thinks is
+  narrower, and getting it wrong quietly. One with no conditions matches anything, so it goes
+  last — the generator warns (`RXH018`) about anything after it.
+- **Conditions on one attribute are ANDed.** `[Response(200, typeof(ApiError), WhenJsonProperty = "error")]`
+  needs both.
+- **Nothing is guessed.** If no declared response matches, `Matched` is false and the raw body is
+  on `UnmatchedContent` — the only clue as to which `[Response]` is missing.
+- **Nothing throws on this path.** A method declaring `ApiResult` has said an error status is one
+  of the expected answers.
+- **This path buffers the body**, because choosing the type by inspecting it requires that. The
+  `Task<T>` path streams and does not pay for it.
+
 ## Retries
 
 Off until you ask for them:

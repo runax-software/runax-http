@@ -76,6 +76,13 @@ await things.DeleteAsync(7);
 using (TransportScope.Use("echo"))
     Check((await things.GetAsync(1)).Id == 7, "transport scope resolved");
 
+// The dispatched path: the echo transport answers with a Thing body, so the "error" property
+// condition does not hold and the fallback wins.
+var quirky = await things.GetQuirkyAsync(1);
+Check(quirky is { Matched: true, StatusCode: 200 }, "ApiResult matched a declared response");
+Check(quirky.Require<Thing>().Id == 7, "ApiResult deserialized the fallback type");
+Check(quirky.Value is Thing, "ApiResult value pattern matches");
+
 Console.WriteLine("AOT smoke test passed.");
 return 0;
 

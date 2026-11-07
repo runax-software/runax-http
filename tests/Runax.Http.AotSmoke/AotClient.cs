@@ -30,7 +30,20 @@ internal interface IThingClient
 
     [Delete("/things/{id}")]
     Task DeleteAsync(int id, CancellationToken ct = default);
+
+    /// <summary>
+    /// The run-time-dispatched path. Each branch names a concrete type, so this has to stay
+    /// reflection-free under AOT too — the decision is dynamic, the deserialization is not.
+    /// </summary>
+    [Get("/things/{id}/quirky")]
+    [Response(typeof(ThingError), WhenJsonProperty = "error")]
+    [Response(404, typeof(ThingError))]
+    [Response(typeof(Thing))]
+    Task<ApiResult> GetQuirkyAsync(int id, CancellationToken ct = default);
 }
+
+/// <summary>An error envelope, for the dispatched path.</summary>
+internal sealed record ThingError(string Error);
 
 /// <summary>
 /// The source-generated JSON contract. This is the configuration that makes serialization
@@ -41,6 +54,7 @@ internal interface IThingClient
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(Thing))]
 [JsonSerializable(typeof(NewThing))]
+[JsonSerializable(typeof(ThingError))]
 internal sealed partial class AotJsonContext : JsonSerializerContext;
 
 internal static class AotJson

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -178,6 +179,27 @@ public sealed class ClientGenerator : IIncrementalGenerator
             return null;
         }
 
+        var responses = ReadResponses(method, diagnostics);
+
+        if (responses.Length > 0 && shape != ResultShape.ApiResult)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                Diagnostics.ResponseNeedsApiResult,
+                Location(method),
+                method.ToDisplayString(),
+                method.ReturnType.ToDisplayString()));
+
+            return null;
+        }
+
+        if (responses.Length == 0 && shape == ResultShape.ApiResult)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                Diagnostics.ApiResultNeedsResponse, Location(method), method.ToDisplayString()));
+
+            return null;
+        }
+
         var parameters = AnalyzeParameters(method, template, diagnostics, out var bodyFormat);
 
         ValidatePlaceholders(method, template, parameters, diagnostics);
@@ -212,6 +234,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
             ReadTransportName(method),
             parameters,
             ReadConstantHeaders(method),
+            responses,
             bodyFormat ?? "Json");
     }
 
@@ -371,6 +394,12 @@ public sealed class ClientGenerator : IIncrementalGenerator
             return true;
         }
 
+        if (resultName == "Runax.Http.ApiResult")
+        {
+            shape = ResultShape.ApiResult;
+            return true;
+        }
+
         if (result is INamedTypeSymbol { IsGenericType: true, Arity: 1 } apiResponse
             && apiResponse.ConstructedFrom.ToDisplayString() == "Runax.Http.ApiResponse<T>")
         {
@@ -385,6 +414,135 @@ public sealed class ClientGenerator : IIncrementalGenerator
         contentTypeName = result.ToDisplayString(QualifiedWithNullability);
 
         return true;
+    }
+
+    /// <summary>
+    /// Reads the <c>[Response]</c> declarations in source order, since the first match wins.
+    /// </summary>
+    private static ImmutableArray<ResponseModel> ReadResponses(
+        IMethodSymbol method,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        var responses = ImmutableArray.CreateBuilder<ResponseModel>();
+        var conditions = new HashSet<string>(StringComparer.Ordinal);
+        var sawUnconditional = false;
+
+        foreach (var attribute in method.GetAttributes())
+        {
+            if (attribute.AttributeClass?.ToDisplayString() != $"{AttributesNamespace}.ResponseAttribute")
+                continue;
+
+            var arguments = attribute.ConstructorArguments;
+
+            // Two constructors: (Type) for the fallback, (int, Type) for a status code.
+            var statusCode = arguments.Length == 2 ? arguments[0].Value as int? : null;
+            var typeSymbol = (arguments.Length == 2 ? arguments[1].Value : arguments[0].Value) as ITypeSymbol;
+
+            if (typeSymbol is null)
+                continue;
+
+            int? min = null, max = null;
+            string? jsonProperty = null, jsonEquals = null, header = null, headerEquals = null;
+
+            foreach (var named in attribute.NamedArguments)
+            {
+                switch (named.Key)
+                {
+                    case "MinStatusCode" when named.Value.Value is int low and > 0:
+                        min = low;
+                        break;
+                    case "MaxStatusCode" when named.Value.Value is int high and > 0:
+                        max = high;
+                        break;
+                    case "WhenJsonProperty":
+                        jsonProperty = named.Value.Value as string;
+                        break;
+                    case "WhenJsonPropertyEquals":
+                        jsonEquals = named.Value.Value as string;
+                        break;
+                    case "WhenHeader":
+                        header = named.Value.Value as string;
+                        break;
+                    case "WhenHeaderEquals":
+                        headerEquals = named.Value.Value as string;
+                        break;
+                }
+            }
+
+            var response = new ResponseModel(
+                typeSymbol.ToDisplayString(QualifiedWithNullability),
+                statusCode,
+                min,
+                max,
+                jsonProperty,
+                jsonEquals,
+                header,
+                headerEquals);
+
+            if (sawUnconditional)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    Diagnostics.UnreachableResponse, Location(method), method.ToDisplayString()));
+
+                continue;
+            }
+
+            // Two responses with identical conditions mean the second never runs, and which type a
+            // response became would come down to declaration order.
+            var key = Describe(response);
+
+            if (!conditions.Add(key))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    Diagnostics.DuplicateResponseCondition,
+                    Location(method),
+                    method.ToDisplayString(),
+                    key));
+
+                continue;
+            }
+
+            sawUnconditional |= response.IsUnconditional;
+            responses.Add(response);
+        }
+
+        return responses.ToImmutable();
+    }
+
+    /// <summary>A response's conditions as text, for duplicate detection and diagnostics.</summary>
+    private static string Describe(ResponseModel response)
+    {
+        if (response.IsUnconditional)
+            return "any response";
+
+        var parts = new List<string>();
+
+        if (response.StatusCode is { } status)
+            parts.Add($"status {status.ToString(CultureInfo.InvariantCulture)}");
+
+        if (response.MinStatusCode is not null || response.MaxStatusCode is not null)
+        {
+            var low = response.MinStatusCode?.ToString(CultureInfo.InvariantCulture) ?? "*";
+            var high = response.MaxStatusCode?.ToString(CultureInfo.InvariantCulture) ?? "*";
+
+            parts.Add($"status {low}-{high}");
+        }
+
+        if (response.JsonProperty is { } property)
+        {
+            parts.Add(response.JsonPropertyEquals is { } expected
+                ? $"body property '{property}' == '{expected}'"
+                : $"body property '{property}'");
+        }
+
+        if (response.Header is { } headerName)
+        {
+            parts.Add(response.HeaderEquals is { } headerValue
+                ? $"header '{headerName}' == '{headerValue}'"
+                : $"header '{headerName}'");
+        }
+
+        return string.Join(" and ", parts);
     }
 
     private static AttributeData? FindRequestAttribute(IMethodSymbol method)

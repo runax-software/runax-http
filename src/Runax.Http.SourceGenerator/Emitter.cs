@@ -104,14 +104,7 @@ internal static class Emitter
                 .Where(parameter => parameter.Binding == ParameterBinding.Path)
                 .Select(parameter => (Literal(parameter.WireName), parameter.Name)));
 
-        EmitPairs(
-            code,
-            indent,
-            "QueryValues",
-            "string, object?",
-            method.Parameters
-                .Where(parameter => parameter.Binding == ParameterBinding.Query)
-                .Select(parameter => (Literal(parameter.WireName), parameter.Name)));
+        EmitQueryValues(code, indent, method);
 
         var headers = method.ConstantHeaders
             .Select(header => (Literal(header.Key), Literal(header.Value)))
@@ -277,6 +270,56 @@ internal static class Emitter
         }
 
         return string.Join(" && ", tests);
+    }
+
+    /// <summary>
+    /// Emits the query entries, which unlike the other collections can come from three shapes.
+    /// </summary>
+    /// <remarks>
+    /// A collection expression rather than an array literal, because a dictionary argument
+    /// contributes an unknown number of entries and has to be spread in. The other two shapes are
+    /// fixed at compile time: a scalar is one entry, and an object is one per property, resolved by
+    /// the generator so nothing reflects over the type at run time.
+    /// </remarks>
+    private static void EmitQueryValues(StringBuilder code, string indent, MethodModel method)
+    {
+        const string pair = "global::System.Collections.Generic.KeyValuePair<string, object?>";
+
+        var elements = new List<string>();
+
+        foreach (var parameter in method.Parameters)
+        {
+            if (parameter.Binding != ParameterBinding.Query)
+                continue;
+
+            switch (parameter.QueryShape)
+            {
+                case QueryShape.Object:
+                    foreach (var field in parameter.QueryFields)
+                        elements.Add($"new {pair}({Literal(field.WireName)}, {field.Access})");
+
+                    break;
+
+                case QueryShape.Dictionary:
+                    elements.Add($"..{Runtime}.Requests.QueryFields.From({parameter.Name})");
+                    break;
+
+                default:
+                    elements.Add($"new {pair}({Literal(parameter.WireName)}, {parameter.Name})");
+                    break;
+            }
+        }
+
+        if (elements.Count == 0)
+            return;
+
+        code.AppendLine($"{indent}    QueryValues =");
+        code.AppendLine($"{indent}    [");
+
+        foreach (var element in elements)
+            code.AppendLine($"{indent}        {element},");
+
+        code.AppendLine($"{indent}    ],");
     }
 
     private static void EmitPairs(

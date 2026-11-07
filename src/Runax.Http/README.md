@@ -42,6 +42,18 @@ Then inject `IRepositoryClient`. A parameter with no attribute binds to a path p
 same name; anything else needs an attribute, because guessing that an unbound parameter "must be a
 query parameter" is how a secret ends up in a URL.
 
+A whole object works as a `[Query]` parameter and is expanded to one key per property, resolved at
+compile time so it stays reflection-free:
+
+```csharp
+[Get("/search")]
+Task<Results> SearchAsync([Query] SearchFilter filter, CancellationToken ct = default);
+// ?State=open&per_page=50&Labels=bug&Labels=docs
+```
+
+A dictionary keyed by string works too, contributing its own keys. A type the runtime cannot turn
+into text is a build error rather than a `ToString()` sent to your server.
+
 ## Return types
 
 | Signature | Behaviour |

@@ -68,6 +68,16 @@ internal sealed class RunaxClientBuilder<TContract> : IRunaxClientBuilder<TContr
     }
 
     /// <inheritdoc />
+    public IRunaxClientBuilder<TContract> WithTotalTimeout(TimeSpan timeout)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+
+        _options.TotalTimeout = timeout;
+
+        return this;
+    }
+
+    /// <inheritdoc />
     public IRunaxClientBuilder<TContract> WithDefaultHeader(string name, string value)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);

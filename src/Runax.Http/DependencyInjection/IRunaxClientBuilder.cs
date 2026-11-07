@@ -42,10 +42,27 @@ public interface IRunaxClientBuilder<TContract>
     /// </remarks>
     IRunaxClientBuilder<TContract> UseTransport(string name);
 
-    /// <summary>Sets how long a request may take when the method does not say.</summary>
-    /// <param name="timeout">The timeout.</param>
+    /// <summary>Sets how long a single attempt may take when the method does not say.</summary>
+    /// <param name="timeout">The per-attempt timeout.</param>
     /// <returns>This builder.</returns>
+    /// <remarks>
+    /// Per attempt. With retries on, the caller waits this multiplied by the attempt count plus
+    /// the backoff — see <see cref="WithTotalTimeout"/> for the budget that bounds the call.
+    /// </remarks>
     IRunaxClientBuilder<TContract> WithTimeout(TimeSpan timeout);
+
+    /// <summary>
+    /// Sets how long the whole call may take, including every retry and the waits between them.
+    /// </summary>
+    /// <param name="timeout">The total budget.</param>
+    /// <returns>This builder.</returns>
+    /// <remarks>
+    /// The budget a caller actually experiences. Worth setting on any client with retries on: a
+    /// per-attempt timeout bounds an attempt, and retries multiply it with backoff on top, so a
+    /// client can block for minutes with nothing in its configuration looking wrong. Exceeding it
+    /// throws <see cref="TransportException"/>, not a cancellation.
+    /// </remarks>
+    IRunaxClientBuilder<TContract> WithTotalTimeout(TimeSpan timeout);
 
     /// <summary>Adds a header sent with every request from this client.</summary>
     /// <param name="name">The header name.</param>

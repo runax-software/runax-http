@@ -3,10 +3,14 @@
 Declarative HTTP clients for .NET: annotate an interface, get an implementation at compile
 time — over whichever HTTP library you choose, swappable at run time.
 
-> **Status: pre-release.** The generator, runtime, DI, retries, response dispatch and two
-> transports all work end to end, and both transports pass the same conformance suite. Nothing is
-> on NuGet yet. See [ROADMAP.md](ROADMAP.md) for what lands when, and
-> [CHANGELOG.md](CHANGELOG.md) for what already has.
+```bash
+dotnet add package Runax.Http
+```
+
+See [CHANGELOG.md](CHANGELOG.md) for what 1.0.0 contains and [ROADMAP.md](ROADMAP.md) for what
+comes next. [`BodyFormat.UrlEncoded` and `BodyFormat.Multipart`](docs/diagnostics.md#rxh014) are
+the one declared-but-unimplemented corner, and report a build error rather than quietly sending
+JSON.
 
 ## The idea
 
@@ -84,12 +88,12 @@ above that boundary, so they are written once rather than once per transport.
 
 ## Packages
 
-| Package | Status | What it is |
-| --- | --- | --- |
-| `Runax.Http.Abstractions` | built | Attributes and the transport-neutral contracts. Zero dependencies — the BCL and nothing else. |
-| `Runax.Http` | built | The source generator, DI wiring, the request runtime, and the `HttpClient` transport. |
-| `Runax.Http.Transports.RestSharp` | built | RestSharp transport. Passes the same conformance suite, with a different capability set. |
-| `Runax.Http.TestKit` | built | A recording transport and a harness: assert what your client would have sent, no sockets. |
+| Package | What it is |
+| --- | --- |
+| **`Runax.Http`** | The one to install: the source generator, DI wiring, the request runtime, and the `HttpClient` transport. |
+| `Runax.Http.Abstractions` | Attributes and the transport-neutral contracts. Zero dependencies — the BCL and nothing else. Reference it directly when writing a transport. |
+| `Runax.Http.Transports.RestSharp` | RestSharp transport. Passes the same conformance suite, with a different capability set. |
+| `Runax.Http.TestKit` | A recording transport and a harness: assert what your client would have sent, no sockets. |
 
 `HttpClient` ships inside `Runax.Http` rather than as a separate transport package. The rule
 behind the split is that no package forces a third-party dependency on you — and `HttpClient`

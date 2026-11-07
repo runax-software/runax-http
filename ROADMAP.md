@@ -1,7 +1,10 @@
 # Runax.Http — Roadmap
 
-The path to 1.0, then the backlog behind it. Ordered by what each item unblocks rather than by
-effort. Nothing here is a commitment to a date.
+Post-1.0 backlog. 1.0.0 shipped the generator and its diagnostics, the request runtime, DI wiring,
+retries, run-time response dispatch, two transports with a shared conformance suite, and the
+TestKit — see [CHANGELOG.md](CHANGELOG.md).
+
+Ordered by what each item unblocks rather than by effort. Nothing here is a commitment to a date.
 
 ## Milestone 0 — Scaffolding
 

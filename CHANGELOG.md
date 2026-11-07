@@ -6,16 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 All packages in the repository are versioned together.
 
-## [Unreleased]
-
-### Fixed
-
-- **`RXH001` could never fire.** The generator only visited interface declarations, so request
-  attributes on a class were silently ignored rather than reported — the author would have found
-  out when the methods they expected to be implemented did not exist. It now visits any type
-  declaration and reports the diagnostic it already had. Found while writing the diagnostics
-  reference, which is a decent argument for writing documentation against the code rather than
-  against memory.
+## [1.0.0] - 2026-11-07
 
 ### Added
 
@@ -194,4 +185,4 @@ All packages in the repository are versioned together.
 - Community health files: contributing guide, code of conduct, security policy, issue and pull
   request templates, CODEOWNERS and Dependabot.
 
-[Unreleased]: https://github.com/runax-software/runax-http/commits/main
+[1.0.0]: https://github.com/runax-software/runax-http/releases/tag/v1.0.0

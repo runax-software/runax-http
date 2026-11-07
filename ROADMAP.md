@@ -34,11 +34,12 @@ effort. Nothing here is a commitment to a date.
 - [x] **`TransportCapabilities`** — each transport declares what it supports, and the check is
   applied once in the runtime rather than in each transport, so a new one cannot forget it. A gap
   throws `TransportCapabilityException` before the request is sent.
-- [ ] **`Runax.Http.Transports.RestSharp`** — the second transport, which is what actually
-  proves the abstraction holds.
-- [ ] **Transport conformance suite** — one shared test suite every transport must pass,
-  running in-process against Kestrel. A new transport is "done" when it passes, not when its
-  author says so.
+- [x] **`Runax.Http.Transports.RestSharp`** — the second transport, which is what actually
+  proves the abstraction holds. It declares a different capability set (no streaming in either
+  direction) and passes the same suite, which is the model working rather than a compromise.
+- [x] **Transport conformance suite** — one shared suite every transport must pass, against a real
+  Kestrel server on a loopback port. A new transport is "done" when it passes, not when its author
+  says so. It found two bugs in the RestSharp transport on its first run.
 
 ## Milestone 2 remainder
 

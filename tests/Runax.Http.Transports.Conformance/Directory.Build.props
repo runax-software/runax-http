@@ -1,0 +1,6 @@
+<Project>
+  <!-- Deliberately does NOT import tests/Directory.Build.props. That file makes a project an xUnit
+       executable, and this is a library of inherited tests: there is nothing to run here until a
+       transport subclasses the suite. xunit.v3 refuses to build a non-executable, so this project
+       references xunit.v3.extensibility.core instead and sets up the rest itself. -->
+</Project>

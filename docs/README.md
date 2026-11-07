@@ -33,6 +33,8 @@ New to it? Read the [root README](../README.md) for the pitch, then
 - [Runax.Http](../src/Runax.Http/README.md) — the package to install
 - [Runax.Http.Abstractions](../src/Runax.Http.Abstractions/README.md) — attributes and contracts,
   for transport authors and shared contract assemblies
+- [Runax.Http.Transports.RestSharp](../src/Runax.Http.Transports.RestSharp/README.md) — the
+  RestSharp transport, and a capability table showing where it differs from `HttpClient`
 
 ## Not written yet
 
@@ -41,5 +43,3 @@ cannot use. Still to come, tracked on the [roadmap](../ROADMAP.md):
 
 - **Testing** — waiting on `Runax.Http.TestKit`
 - **Observability** — waiting on the tracing and metrics work
-- **Transport conformance** — waiting on the shared suite; the behaviours it will cover are listed
-  at the end of [Writing a custom transport](writing-a-custom-transport.md)

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>RestSharp transport for Runax.Http. Lets a Runax.Http client interface run over RestSharp instead of HttpClient, selected by name at registration or per call.</Description>
+  </PropertyGroup>
+
+  <!-- Abstractions carries IHttpTransport, which is all the transport class itself needs.
+       Runax.Http is referenced for IRunaxHttpBuilder, so this package can offer
+       AddRestSharpTransport() rather than making consumers construct and register it by hand. -->
+  <ItemGroup>
+    <ProjectReference Include="../Runax.Http.Abstractions/Runax.Http.Abstractions.csproj" />
+    <ProjectReference Include="../Runax.Http/Runax.Http.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RestSharp" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Runax.Http.Transports.RestSharp.Tests" />
+  </ItemGroup>
+</Project>

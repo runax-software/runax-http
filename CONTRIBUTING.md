@@ -112,10 +112,14 @@ because it needs nothing beyond the BCL and so costs a consumer no extra depende
 
 1. Create a new library under `src/` named `Runax.Http.Transports.<Name>`. It inherits all
    common settings from `src/Directory.Build.props`, so the `.csproj` only needs its references.
-2. Reference the abstractions project — **not** the core:
+2. Reference the abstractions project for `IHttpTransport`, and the core for `IRunaxHttpBuilder`
+   if you want to offer an `AddYourTransport()` extension:
     ```xml
     <ProjectReference Include="../Runax.Http.Abstractions/Runax.Http.Abstractions.csproj" />
+    <ProjectReference Include="../Runax.Http/Runax.Http.csproj" />
     ```
+   The invariant that matters is that the transport **class** only touches `Abstractions` types;
+   the reference to the core exists for registration glue, not for the transport itself.
 3. Implement `IHttpTransport`. Translate the neutral request into your stack's own request,
    send it, and translate the result back. Do not serialize, retry, or log in here.
 4. Expose your transport's name as a `public const string TransportName`, the way

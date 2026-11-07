@@ -165,11 +165,29 @@ declare your SDK's version in `Directory.Packages.props` if you are contributing
 
 ## Conformance
 
-A shared test suite every transport must pass is on the [roadmap](../ROADMAP.md) and is what will
-make a transport "done" rather than its author's say-so. Until it exists, the behaviours to cover
-are: every method maps correctly, the URI is used as given, headers reach the right collection
-(content headers included), an error status comes back as a response rather than an exception, the
-body is readable after `SendAsync` returns, a connection failure becomes a `TransportException`, and
-a per-request timeout is reported as a timeout rather than a cancellation.
+A transport is done when the shared suite passes, not when its author says so. Subclass it and
+return your transport:
 
-`HttpClientTransportTests` in this repository is the current reference for that list.
+```csharp
+public sealed class MyTransportConformanceTests : TransportConformanceTests
+{
+    protected override IHttpTransport CreateTransport() => new MyTransport();
+}
+```
+
+That is the whole file. The suite runs your transport against a real Kestrel server on a loopback
+port and covers: every method reaching the wire as itself, the URI being sent exactly as given
+(asserted against the raw request line, not the server's decoded view), request and response
+headers including content headers and repeated ones, string/binary/form bodies, every status code
+coming back as a response rather than an exception, a binary response surviving intact, the body
+being readable after `SendAsync` returns, a connection failure becoming a `TransportException`, a
+cancellation staying a cancellation, and a per-request timeout being reported as a timeout.
+
+It also checks the capabilities you declared against what you actually do. A capability you do
+*not* declare is asserted to be genuinely absent rather than skipped — a transport that quietly
+gained an undeclared behaviour is as much of a problem as one that lost a declared one.
+
+It is worth knowing that writing this suite immediately found two real bugs in the RestSharp
+transport: `SetErrorExceptionOnUnsuccessfulStatusCode` is on by default, so every 404 arrived as a
+transport failure; and a test asserting the server's decoded path rather than the raw request line
+hid the question of whether `%2F` survived. Neither would have been obvious from reading the code.

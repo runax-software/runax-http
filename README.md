@@ -3,10 +3,10 @@
 Declarative HTTP clients for .NET: annotate an interface, get an implementation at compile
 time — over whichever HTTP library you choose, swappable at run time.
 
-> **Status: pre-release.** `Runax.Http` and `Runax.Http.Abstractions` work end to end — generator,
-> runtime, DI and the `HttpClient` transport — but nothing is on NuGet yet and the second transport
-> that will prove the abstraction holds is still to come. See [ROADMAP.md](ROADMAP.md) for what
-> lands when, and [CHANGELOG.md](CHANGELOG.md) for what already has.
+> **Status: pre-release.** The generator, runtime, DI, retries, response dispatch and two
+> transports all work end to end, and both transports pass the same conformance suite. Nothing is
+> on NuGet yet. See [ROADMAP.md](ROADMAP.md) for what lands when, and
+> [CHANGELOG.md](CHANGELOG.md) for what already has.
 
 ## The idea
 
@@ -88,7 +88,7 @@ above that boundary, so they are written once rather than once per transport.
 | --- | --- | --- |
 | `Runax.Http.Abstractions` | built | Attributes and the transport-neutral contracts. Zero dependencies — the BCL and nothing else. |
 | `Runax.Http` | built | The source generator, DI wiring, the request runtime, and the `HttpClient` transport. |
-| `Runax.Http.Transports.RestSharp` | planned | RestSharp transport. |
+| `Runax.Http.Transports.RestSharp` | built | RestSharp transport. Passes the same conformance suite, with a different capability set. |
 | `Runax.Http.TestKit` | planned | A recording in-process transport: assert what your client would have sent, no sockets. |
 
 `HttpClient` ships inside `Runax.Http` rather than as a separate transport package. The rule

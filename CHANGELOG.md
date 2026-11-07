@@ -19,6 +19,31 @@ All packages in the repository are versioned together.
 
 ### Added
 
+- **`Runax.Http.Transports.RestSharp`** — the second transport, and the thing that turns "swappable"
+  from a claim into a tested property. The same client interface runs over it or over `HttpClient`
+  with nothing above `IHttpTransport` changing.
+  - It declares a genuinely **different** capability set: no `RequestStreaming` and no
+    `ResponseStreaming`, where the `HttpClient` transport has both. RestSharp's `ExecuteAsync` reads
+    the whole response before returning and its body parameters hold a value rather than a stream,
+    so a client streaming a large upload is told so rather than having it quietly buffered. That
+    divergence is the capability model earning its keep rather than a shortcoming.
+  - `AutomaticDecompression`, `Cookies` and `AutomaticRedirect` are derived from the options
+    actually in force, so the declared capabilities describe the instance rather than the type.
+  - Registerable more than once under different names, which is how a proxy pool works and the
+    reason a transport is identified by a name rather than a type.
+- **Transport conformance suite** — one shared, inherited suite run against a real Kestrel server on
+  a loopback port; a transport test project is now a single class returning a transport. It covers
+  methods, the raw request line, headers including content and repeated ones, bodies, every status
+  code, binary integrity, response lifetime, connection failures, cancellation, timeouts, and
+  whether the declared capabilities match reality — a capability a transport does *not* declare is
+  asserted absent rather than skipped.
+  - It found two real bugs in the RestSharp transport on its first run.
+    `SetErrorExceptionOnUnsuccessfulStatusCode` is RestSharp's default, so every 404 arrived as
+    `ResponseStatus.Error` and surfaced as a `TransportException` — an ordinary error status turned
+    into a transport failure, which is exactly the leak the boundary forbids. And the URI test was
+    asserting the server's decoded path, which hid whether `%2F` survived the wire; it now asserts
+    the raw request line, which is what "sent exactly as given" actually means.
+
 - **Generator tests** — a harness that drives the generator over source snippets and asserts on
   what it reported and emitted, plus one test per diagnostic (40 tests across three target
   frameworks). Eighteen diagnostics had no automated coverage at all, which is how `RXH001` sat

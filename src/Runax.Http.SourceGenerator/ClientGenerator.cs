@@ -32,12 +32,14 @@ public sealed class ClientGenerator : IIncrementalGenerator
     /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        // Keyed off interface declarations rather than every type: the predicate runs on every
-        // syntax node in the compilation, so it has to be cheap and purely syntactic.
+        // Keyed off type declarations that could carry members: the predicate runs on every syntax
+        // node in the compilation, so it has to be cheap and purely syntactic. Classes and structs
+        // are included so that request attributes in the wrong place can be reported (RXH001)
+        // rather than silently ignored.
         var candidates = context.SyntaxProvider
             .CreateSyntaxProvider(
-                static (node, _) => node is InterfaceDeclarationSyntax { AttributeLists.Count: > 0 }
-                                    or InterfaceDeclarationSyntax { Members.Count: > 0 },
+                static (node, _) => node is TypeDeclarationSyntax { Members.Count: > 0 }
+                                    or TypeDeclarationSyntax { AttributeLists.Count: > 0 },
                 static (ctx, token) => Analyze(ctx, token))
             .Where(static result => result is not null);
 
@@ -67,6 +69,17 @@ public sealed class ClientGenerator : IIncrementalGenerator
             return null;
 
         var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+
+        if (contract.TypeKind != TypeKind.Interface)
+        {
+            // Request attributes on a class or struct do nothing. Saying so beats ignoring them:
+            // the author has written what looks like a client and would otherwise find out when
+            // the methods they expected to be implemented throw NotImplementedException.
+            diagnostics.Add(Diagnostic.Create(
+                Diagnostics.ContractMustBeInterface, Location(contract), contract.ToDisplayString()));
+
+            return new AnalysisResult(null, null, diagnostics.ToImmutable());
+        }
 
         if (contract.IsGenericType)
         {

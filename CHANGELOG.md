@@ -8,7 +8,23 @@ All packages in the repository are versioned together.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`RXH001` could never fire.** The generator only visited interface declarations, so request
+  attributes on a class were silently ignored rather than reported — the author would have found
+  out when the methods they expected to be implemented did not exist. It now visits any type
+  declaration and reports the diagnostic it already had. Found while writing the diagnostics
+  reference, which is a decent argument for writing documentation against the code rather than
+  against memory.
+
 ### Added
+
+- **Documentation** — eleven pages under `docs/`: defining a client, responses and errors,
+  transports, capabilities, retries, serialization, configuration, the full `RXH001`–`RXH018`
+  diagnostic reference, architecture, writing a custom transport, and native AOT. Every diagnostic
+  in that reference was verified to actually fire against a scratch project rather than documented
+  from the source. Pages for testing, observability and transport conformance are deliberately
+  absent until the features exist.
 
 - **`Runax.Http`** — the package to install: the source generator, the request runtime, the
   dependency-injection wiring, and the `HttpClient` transport.

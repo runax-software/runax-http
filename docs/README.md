@@ -16,6 +16,7 @@ New to it? Read the [root README](../README.md) for the pitch, then
 | [Transports](transports.md) | Registering transports, the three ways to select one and their precedence, why a name rather than an enum or a type, and what the built-in `HttpClient` transport declares |
 | [Capabilities](capabilities.md) | What HTTP libraries disagree about, how a request's requirements are derived, and the rule that a transport may throw or degrade but never pretend |
 | [Retries](retries.md) | Turning them on, the backoff curve, `Retry-After`, and the three defaults that are safety decisions rather than taste |
+| [The request pipeline](pipeline.md) | Logging, authentication and correlation as transport-agnostic middleware; where it sits relative to retries, and what the logging stage refuses to write |
 | [Serialization](serialization.md) | `IContentSerializer`, why no serializer is registered by default, source-generated JSON, per-client overrides |
 | [Testing](testing.md) | `Runax.Http.TestKit`: a recording transport and a harness that stands up a real client without a socket, so you can assert on the request it built |
 | [Configuration](configuration.md) | Every option on both builders, ordering guarantees, reading from `IConfiguration`, and using the runtime without a container |

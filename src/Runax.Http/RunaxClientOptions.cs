@@ -1,3 +1,4 @@
+using Runax.Http.Pipeline;
 using Runax.Http.Retry;
 using Runax.Http.Serialization;
 
@@ -55,6 +56,24 @@ public sealed class RunaxClientOptions
     /// is raised above one.
     /// </summary>
     public RetryOptions Retry { get; } = new();
+
+    /// <summary>
+    /// The pipeline stages wrapping every request this client sends, as factories resolved from the
+    /// container when the client is built.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Factories rather than instances, because the stages that matter need something from the
+    /// container — a logger, a token provider — and a client registered before those services were
+    /// is a reordering trap nobody should have to think about.
+    /// </para>
+    /// <para>
+    /// Order on the stage decides where it runs, not its position in this list. Use
+    /// <c>UseLogging()</c>, <c>UseBearerToken(...)</c>, <c>UseCorrelation()</c> or <c>Use(...)</c>
+    /// rather than adding here directly.
+    /// </para>
+    /// </remarks>
+    public IList<Func<IServiceProvider, IHttpMiddleware>> MiddlewareFactories { get; } = [];
 
     /// <summary>
     /// Whether to send an <c>Accept</c> header naming the serializer's content type when the

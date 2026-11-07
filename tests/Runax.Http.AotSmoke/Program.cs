@@ -1,6 +1,7 @@
 using Runax.Http;
 using Runax.Http.AotSmoke;
 using Runax.Http.DependencyInjection;
+using Runax.Http.Pipeline;
 using Runax.Http.Transports;
 
 // Exercises the shipped surface under native AOT. The publish is the real gate — it fails on any
@@ -54,7 +55,16 @@ shared.UseSystemTextJson(AotJson.Options);
 shared.AddTransport(new EchoTransport());
 shared.UseDefaultTransport("echo");
 
-services.AddRunaxClient<IThingClient>().WithBaseAddress("https://api.example.com/v1");
+// Every pipeline stage, so a reflective mistake in one of them fails the publish rather than a
+// consumer's trimmed deployment. Correlation reads Activity, logging formats a message, and
+// authentication awaits a token — none of which may need reflection.
+var pipelineLog = new List<string>();
+
+services.AddRunaxClient<IThingClient>()
+    .WithBaseAddress("https://api.example.com/v1")
+    .UseCorrelation()
+    .UseBearerToken(() => "aot-token")
+    .Use(new AotRecordingMiddleware(pipelineLog));
 
 var provider = global::Microsoft.Extensions.DependencyInjection
     .ServiceCollectionContainerBuilderExtensions.BuildServiceProvider(services);
@@ -82,6 +92,12 @@ var quirky = await things.GetQuirkyAsync(1);
 Check(quirky is { Matched: true, StatusCode: 200 }, "ApiResult matched a declared response");
 Check(quirky.Require<Thing>().Id == 7, "ApiResult deserialized the fallback type");
 Check(quirky.Value is Thing, "ApiResult value pattern matches");
+
+// The pipeline ran, in Order, and reached the transport.
+Check(pipelineLog.Count > 0, "pipeline stage ran under AOT");
+
+var authenticated = await things.GetAsync(7);
+Check(authenticated.Id == 7, "a request through the full pipeline still round-trips");
 
 Console.WriteLine("AOT smoke test passed.");
 return 0;

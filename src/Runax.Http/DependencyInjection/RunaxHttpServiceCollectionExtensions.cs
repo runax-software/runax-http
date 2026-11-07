@@ -148,10 +148,15 @@ public static class RunaxHttpServiceCollectionExtensions
                                  + "default, pass JSON options with a source-generated context to keep "
                                  + "trimming and AOT working, or set one for this client with UseSerializer(...).");
 
+            var middleware = registration.Options.MiddlewareFactories
+                .Select(factory => factory(provider))
+                .ToList();
+
             var executor = new HttpContractExecutor(
                 registration.Options,
                 provider.GetRequiredService<IHttpTransportResolver>(),
-                serializer);
+                serializer,
+                middleware);
 
             return (TContract)generated!.Factory(executor);
         });

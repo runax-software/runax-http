@@ -217,17 +217,6 @@ public sealed class ClientGenerator : IIncrementalGenerator
 
         ValidatePlaceholders(method, template, parameters, diagnostics);
 
-        if (bodyFormat is "UrlEncoded" or "Multipart")
-        {
-            diagnostics.Add(Diagnostic.Create(
-                Diagnostics.UnsupportedBodyFormat,
-                Location(method),
-                method.ToDisplayString(),
-                bodyFormat));
-
-            return null;
-        }
-
         if (bodyFormat is not null && verb is "Get" or "Head" or "Options")
         {
             diagnostics.Add(Diagnostic.Create(
@@ -319,6 +308,23 @@ public sealed class ClientGenerator : IIncrementalGenerator
                 }
 
                 bodyFormat = ReadBodyFormat(attribute);
+
+                // Form and multipart bodies are built from the argument's own shape rather than by
+                // reflecting over it, so the type has to be one the runtime can enumerate. Caught
+                // here, because the alternative is a confusing compile error inside generated code.
+                if (DescribeBodyTypeProblem(parameter.Type, bodyFormat) is { } problem)
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        Diagnostics.UnsupportedBodyParameterType,
+                        Location(parameter),
+                        parameter.Name,
+                        method.ToDisplayString(),
+                        parameter.Type.ToDisplayString(),
+                        bodyFormat,
+                        problem));
+
+                    continue;
+                }
             }
 
             parameters.Add(new ParameterModel(
@@ -611,6 +617,91 @@ public sealed class ClientGenerator : IIncrementalGenerator
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether this type can be sent in the given body format, and if not, what to do instead.
+    /// </summary>
+    /// <returns>The advice to include in the diagnostic, or <see langword="null"/> if it is fine.</returns>
+    private static string? DescribeBodyTypeProblem(ITypeSymbol type, string bodyFormat)
+    {
+        switch (bodyFormat)
+        {
+            case "UrlEncoded":
+                foreach (var element in EnumerableElementTypes(type))
+                {
+                    if (element is INamedTypeSymbol { Arity: 2 } pair
+                        && pair.ConstructedFrom.ToDisplayString() == "System.Collections.Generic.KeyValuePair<TKey, TValue>"
+                        && pair.TypeArguments[0].SpecialType == SpecialType.System_String)
+                    {
+                        return null;
+                    }
+                }
+
+                return "A form body is a sequence of key/value pairs — a Dictionary<string, string> "
+                       + "or an IEnumerable<KeyValuePair<string, object?>>, say. Mapping an object's "
+                       + "properties to fields would mean reflecting over it at run time, which this "
+                       + "library does not do; use BodyFormat.Json, or project it into a dictionary "
+                       + "where the names are visible.";
+
+            case "Multipart":
+                foreach (var element in EnumerableElementTypes(type))
+                {
+                    if (element.ToDisplayString() == "Runax.Http.Transports.MultipartPart")
+                        return null;
+                }
+
+                return "A multipart body is a sequence of MultipartPart, built at the call site. "
+                       + "There is no mapping from an object's properties to parts, because that "
+                       + "would mean reflecting over it at run time.";
+
+            case "Raw":
+                var raw = type.ToDisplayString();
+
+                if (raw is "string" or "byte[]" or "System.IO.Stream"
+                    or "System.ReadOnlyMemory<byte>"
+                    || type.AllInterfaces.Any(i => i.ToDisplayString() == "System.IO.Stream")
+                    || InheritsFromStream(type))
+                {
+                    return null;
+                }
+
+                return "A raw body is sent as written, so it has to be a string, byte[], "
+                       + "ReadOnlyMemory<byte> or Stream.";
+
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>The element types of every <c>IEnumerable&lt;T&gt;</c> this type implements.</summary>
+    private static IEnumerable<ITypeSymbol> EnumerableElementTypes(ITypeSymbol type)
+    {
+        if (type is INamedTypeSymbol { Arity: 1 } self
+            && self.ConstructedFrom.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>")
+        {
+            yield return self.TypeArguments[0];
+        }
+
+        foreach (var implemented in type.AllInterfaces)
+        {
+            if (implemented is { Arity: 1 }
+                && implemented.ConstructedFrom.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>")
+            {
+                yield return implemented.TypeArguments[0];
+            }
+        }
+    }
+
+    private static bool InheritsFromStream(ITypeSymbol type)
+    {
+        for (var current = type.BaseType; current is not null; current = current.BaseType)
+        {
+            if (current.ToDisplayString() == "System.IO.Stream")
+                return true;
+        }
+
+        return false;
     }
 
     private static string ReadBodyFormat(AttributeData attribute)

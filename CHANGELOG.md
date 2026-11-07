@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 All packages in the repository are versioned together.
 
+## [Unreleased]
+
+### Added
+
+- **`BodyFormat.UrlEncoded` and `BodyFormat.Multipart`** are now emitted, completing the body
+  formats the attribute has always advertised. A form body comes from a sequence of key/value pairs
+  — a `Dictionary<string, string>`, or `IEnumerable<KeyValuePair<string, object?>>` for values that
+  still need formatting, which they get from the same formatter as query values so a date spells
+  the same thing in both. A multipart body comes from a sequence of `MultipartPart`, and stays
+  structured all the way to the transport, because boundary generation is genuinely native to each
+  HTTP library.
+- Neither maps an object's properties to fields or parts. That would mean reflecting over the type
+  at run time, which is the one thing this library does not do — so a type the runtime cannot
+  enumerate is a build error rather than a trimming surprise.
+
+### Changed
+
+- **`RXH014` is retired and `RXH019` replaces it.** `RXH014` refused the two formats outright;
+  there is nothing left for it to refuse. `RXH019` covers the real mistake instead: a body
+  parameter whose type cannot be sent in the format it declared, including `Raw` with something
+  that is not a `string`, `byte[]`, `ReadOnlyMemory<byte>` or `Stream`.
+- The retirement is recorded under *Removed Rules* in `AnalyzerReleases.Unshipped.md`, with the
+  1.0.0 rule set moved to `AnalyzerReleases.Shipped.md`. The number is not reused for a different
+  meaning — these ids reach consumers' build logs and `NoWarn` lists, so a silent change of meaning
+  would be worse than a retirement.
+
 ## [1.0.0] - 2026-11-07
 
 ### Added
@@ -185,4 +211,5 @@ All packages in the repository are versioned together.
 - Community health files: contributing guide, code of conduct, security policy, issue and pull
   request templates, CODEOWNERS and Dependabot.
 
+[Unreleased]: https://github.com/runax-software/runax-http/compare/v1.0.0...main
 [1.0.0]: https://github.com/runax-software/runax-http/releases/tag/v1.0.0

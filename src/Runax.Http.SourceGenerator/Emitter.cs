@@ -136,18 +136,30 @@ internal static class Emitter
 
     private static void EmitBody(StringBuilder code, string indent, MethodModel method, ParameterModel body)
     {
-        if (method.BodyFormat == "Raw")
+        switch (method.BodyFormat)
         {
-            // Already in wire form. A string becomes UTF-8 bytes; a stream stays a stream, so a
-            // large upload is not buffered on the way through.
-            code.AppendLine($"{indent}    Content = {Runtime}.Requests.RawBody.Create({body.Name}),");
+            case "Raw":
+                // Already in wire form. A string becomes UTF-8 bytes; a stream stays a stream, so
+                // a large upload is not buffered on the way through.
+                code.AppendLine($"{indent}    Content = {Runtime}.Requests.RawBody.Create({body.Name}),");
+                return;
 
-            return;
+            case "UrlEncoded":
+                code.AppendLine($"{indent}    Content = {Runtime}.Requests.FormBody.Create({body.Name}),");
+                return;
+
+            case "Multipart":
+                // The parts stay structured all the way to the transport: boundary generation is
+                // genuinely native to each HTTP library.
+                code.AppendLine($"{indent}    Content = {Runtime}.Requests.MultipartBody.Create({body.Name}),");
+                return;
+
+            default:
+                // The serializer is called with the parameter's static type, so nothing has to
+                // reflect over the body to discover what is being sent.
+                code.AppendLine($"{indent}    Content = _executor.Serializer.Serialize<{body.TypeName}>({body.Name}),");
+                return;
         }
-
-        // The serializer is called with the parameter's static type, so nothing has to reflect over
-        // the body to discover what is being sent.
-        code.AppendLine($"{indent}    Content = _executor.Serializer.Serialize<{body.TypeName}>({body.Name}),");
     }
 
     private static void EmitDispatch(StringBuilder code, MethodModel method, string token, string indent)

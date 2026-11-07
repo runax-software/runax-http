@@ -104,9 +104,19 @@ parameter's **static** type — which is what keeps serialization reflection-fre
 as-is. A `Stream` is streamed rather than buffered, which needs a transport declaring
 [`RequestStreaming`](capabilities.md).
 
-At most one `[Body]` per method ([`RXH004`](diagnostics.md)). `BodyFormat.UrlEncoded` and
-`BodyFormat.Multipart` are not emitted yet and report [`RXH014`](diagnostics.md) rather than being
-silently sent as JSON.
+`[Body(Format = BodyFormat.UrlEncoded)]` sends an `application/x-www-form-urlencoded` body from a
+sequence of key/value pairs — a `Dictionary<string, string>`, or
+`IEnumerable<KeyValuePair<string, object?>>` for values that still need formatting (which they get
+from the same formatter as query values, so a date spells the same thing in both).
+
+`[Body(Format = BodyFormat.Multipart)]` sends `multipart/form-data` from a sequence of
+`MultipartPart`, and needs a transport declaring [`Multipart`](capabilities.md).
+
+Neither maps an object's properties to fields or parts: that would mean reflecting over the type at
+run time. A type the runtime cannot enumerate is [`RXH019`](diagnostics.md#rxh019), a build error,
+rather than a trimming surprise.
+
+At most one `[Body]` per method ([`RXH004`](diagnostics.md)).
 
 A body on a `GET`, `HEAD` or `OPTIONS` is a warning ([`RXH010`](diagnostics.md)). It will be sent,
 but caches, proxies and servers are entitled to ignore or reject it, so it is usually a `[Query]`

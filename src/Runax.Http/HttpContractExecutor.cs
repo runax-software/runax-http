@@ -1,4 +1,5 @@
 using System.Text;
+using Runax.Http.Pipeline;
 using Runax.Http.Requests;
 using Runax.Http.Retry;
 using Runax.Http.Serialization;
@@ -12,6 +13,7 @@ public sealed class HttpContractExecutor : IHttpContractExecutor
     private readonly RunaxClientOptions _options;
     private readonly IHttpTransportResolver _transports;
     private readonly IContentSerializer _serializer;
+    private readonly RequestPipelineStep _pipeline;
 
     /// <summary>Initializes a new instance of the <see cref="HttpContractExecutor"/> class.</summary>
     /// <param name="options">How the client this executor serves is configured.</param>
@@ -19,10 +21,15 @@ public sealed class HttpContractExecutor : IHttpContractExecutor
     /// <param name="serializer">
     /// The application-wide serializer, used unless the client configures its own.
     /// </param>
+    /// <param name="middleware">
+    /// The pipeline stages, already resolved. Composed once here rather than per request, since the
+    /// closures would be identical every time.
+    /// </param>
     public HttpContractExecutor(
         RunaxClientOptions options,
         IHttpTransportResolver transports,
-        IContentSerializer serializer)
+        IContentSerializer serializer,
+        IEnumerable<IHttpMiddleware>? middleware = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(transports);
@@ -31,6 +38,11 @@ public sealed class HttpContractExecutor : IHttpContractExecutor
         _options = options;
         _transports = transports;
         _serializer = options.Serializer ?? serializer;
+
+        _pipeline = RequestPipeline.Compose(
+            middleware is null ? [] : [.. middleware],
+            static (context, cancellationToken) =>
+                context.Transport.SendAsync(context.ToTransportRequest(), cancellationToken));
     }
 
     /// <inheritdoc />
@@ -212,35 +224,46 @@ public sealed class HttpContractExecutor : IHttpContractExecutor
         // from: a method's [Retry] refines the client's options, and Suppressed beats both.
         var retry = _options.Retry.Resolve(request.Retry);
 
-        return await SendWithRetriesAsync(transport, transportRequest, retry, cancellationToken)
-            .ConfigureAwait(false);
+        // Created once per call and reused for every attempt, which is what lets a stage re-read a
+        // token on a retry while a correlation id stays put. See RequestContext.
+        var context = new RequestContext(request, transportRequest, transport);
+
+        return await SendWithRetriesAsync(context, retry, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Sends the request, repeating it while the settings allow and the outcome warrants it.
+    /// Sends the request through the pipeline, repeating it while the settings allow and the
+    /// outcome warrants it.
     /// </summary>
     /// <remarks>
     /// Above the transport on purpose. Every transport gets the same retry behaviour, and none of
     /// them has to implement it — which also means retry semantics do not change when you swap one.
+    ///
+    /// The pipeline is invoked <em>inside</em> this loop, so each attempt passes through every
+    /// stage again. That is what lets authentication re-read a token for a retry; anything that
+    /// must stay constant across attempts lives on the context instead.
     /// </remarks>
-    private static async Task<Exchange> SendWithRetriesAsync(
-        IHttpTransport transport,
-        TransportRequest request,
+    private async Task<Exchange> SendWithRetriesAsync(
+        RequestContext context,
         RetryOptions retry,
         CancellationToken cancellationToken)
     {
-        var retryable = RetryPlanner.IsRetryable(retry, request);
+        // Not static, unlike before the pipeline landed: the loop now invokes _pipeline. The
+        // resolved options still arrive as a parameter so the loop stays ignorant of where they
+        // came from.
+        var retryable = RetryPlanner.IsRetryable(retry, context.ToTransportRequest());
         var attempt = 0;
 
         while (true)
         {
             attempt++;
+            context.Attempt = attempt;
 
             TransportResponse response;
 
             try
             {
-                response = await transport.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                response = await _pipeline(context, cancellationToken).ConfigureAwait(false);
             }
             catch (TransportException) when (retryable
                                              && retry.RetryTransportFailures
@@ -262,7 +285,7 @@ public sealed class HttpContractExecutor : IHttpContractExecutor
                 || attempt >= retry.MaxAttempts
                 || !RetryPlanner.ShouldRetryStatus(retry, response.StatusCode))
             {
-                return new Exchange(response, transport.Name, request.RequestUri);
+                return new Exchange(response, context.Transport.Name, context.RequestUri);
             }
 
             var retryAfter = RetryPlanner.ReadRetryAfter(
@@ -274,7 +297,7 @@ public sealed class HttpContractExecutor : IHttpContractExecutor
             {
                 // The server asked for longer than we are willing to wait. That is a refusal to
                 // retry, not an instruction to block, so the response is returned as the answer.
-                return new Exchange(response, transport.Name, request.RequestUri);
+                return new Exchange(response, context.Transport.Name, context.RequestUri);
             }
 
             // Disposed before waiting, so a pooled connection is not held for the whole backoff.

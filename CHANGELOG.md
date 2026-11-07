@@ -37,16 +37,36 @@ All packages in the repository are versioned together.
   - Two new diagnostics. `RXH020` (warning) catches a `[Retry]` on a `POST` or `PATCH` without
     `AllowNonIdempotent`, where the attribute would silently do nothing. `RXH021` catches an
     attempt count below one.
-- **`BodyFormat.UrlEncoded` and `BodyFormat.Multipart`** are now emitted, completing the body
-  formats the attribute has always advertised. A form body comes from a sequence of key/value pairs
-  — a `Dictionary<string, string>`, or `IEnumerable<KeyValuePair<string, object?>>` for values that
-  still need formatting, which they get from the same formatter as query values so a date spells
-  the same thing in both. A multipart body comes from a sequence of `MultipartPart`, and stays
-  structured all the way to the transport, because boundary generation is genuinely native to each
-  HTTP library.
-- Neither maps an object's properties to fields or parts. That would mean reflecting over the type
-  at run time, which is the one thing this library does not do — so a type the runtime cannot
-  enumerate is a build error rather than a trimming surprise.
+- **The request pipeline** — logging, authentication and correlation as middleware that works on
+  every transport. `DelegatingHandler` is where these would normally live and only exists in
+  `HttpClient`-land, so anything built on it could not be reused for RestSharp; this sits above
+  `IHttpTransport` instead, for the same reason serialization, retries and the capability check do.
+  Each stage is independently opt-in and a client with no stages pays nothing — the pipeline is the
+  transport call.
+  - **It runs inside the retry loop, once per attempt, with a `RequestContext` created once per
+    call.** Neither position serves everything on its own: outside, a refreshed token never reaches
+    a retry; inside with nowhere to keep per-call state, a correlation id changes on every try. So
+    stages re-run per attempt and anything that must stay constant lives on the context —
+    `CorrelationId` is assigned with `??=` and `Attempt` tells the tries apart.
+  - **Ordering is explicit**, from `IHttpMiddleware.Order` rather than registration order, so
+    reordering a fluent chain cannot silently change behaviour. Correlation outermost, then
+    logging, then authentication closest to the wire; equal values keep registration order.
+  - **Logging** writes a line per attempt with method, address, status, elapsed, transport and
+    attempt number, through an `ILogger` categorised by the contract so one client can be turned up
+    alone. It **never logs bodies** — not configurable, because a body is the likeliest place for a
+    credential and a switch like that gets enabled in an incident and left on. Header values are an
+    allow-list, empty by default; `Authorization`, `Proxy-Authorization`, `Cookie` and `Set-Cookie`
+    render as `***` even when named, which answers "was auth attached?" without carrying the token.
+  - **Authentication** asks its provider on every attempt, so a token refreshed between a failure
+    and its retry is the one that gets used, and replaces the header rather than appending so a
+    retry does not carry both. A null token sends the request unauthenticated and clears any header
+    a previous attempt set.
+  - **Correlation** propagates a stable id, taking the trace id and W3C `traceparent` from an
+    ambient `Activity` when there is one so the call joins the trace already running. A header the
+    caller set explicitly is left alone.
+  - A stage may only change headers. `RequiredCapabilities` is derived from the body, proxy,
+    timeout and version and the capability check runs before the pipeline, so a stage altering one
+    of those could introduce a requirement nothing had checked.
 
 ### Changed
 
@@ -58,6 +78,25 @@ All packages in the repository are versioned together.
   1.0.0 rule set moved to `AnalyzerReleases.Shipped.md`. The number is not reused for a different
   meaning — these ids reach consumers' build logs and `NoWarn` lists, so a silent change of meaning
   would be worse than a retirement.
+
+### Fixed
+
+- **A rebuilt request no longer changes underneath a transport.** `TransportRequest` is documented
+  as immutable and a transport is entitled to hold on to one, but the pipeline handed over its live
+  header list — so on a retry the next attempt's header changes rewrote a request that had already
+  been sent. It showed up as the first attempt appearing to carry the second attempt's token, and
+  was caught by the test written to prove token refresh worked.
+
+- **`BodyFormat.UrlEncoded` and `BodyFormat.Multipart`** are now emitted, completing the body
+  formats the attribute has always advertised. A form body comes from a sequence of key/value pairs
+  — a `Dictionary<string, string>`, or `IEnumerable<KeyValuePair<string, object?>>` for values that
+  still need formatting, which they get from the same formatter as query values so a date spells
+  the same thing in both. A multipart body comes from a sequence of `MultipartPart`, and stays
+  structured all the way to the transport, because boundary generation is genuinely native to each
+  HTTP library.
+- Neither maps an object's properties to fields or parts. That would mean reflecting over the type
+  at run time, which is the one thing this library does not do — so a type the runtime cannot
+  enumerate is a build error rather than a trimming surprise.
 
 ## [1.0.0] - 2026-11-07
 

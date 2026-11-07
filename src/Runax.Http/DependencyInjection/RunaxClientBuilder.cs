@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Runax.Http.Pipeline;
 using Runax.Http.Retry;
 using Runax.Http.Serialization;
 
@@ -114,6 +116,81 @@ internal sealed class RunaxClientBuilder<TContract> : IRunaxClientBuilder<TContr
         _options.Serializer = serializer;
 
         return this;
+    }
+
+    /// <inheritdoc />
+    public IRunaxClientBuilder<TContract> Use(Func<IServiceProvider, IHttpMiddleware> factory)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
+
+        _options.MiddlewareFactories.Add(factory);
+
+        return this;
+    }
+
+    /// <inheritdoc />
+    public IRunaxClientBuilder<TContract> Use(IHttpMiddleware middleware)
+    {
+        ArgumentNullException.ThrowIfNull(middleware);
+
+        return Use(_ => middleware);
+    }
+
+    /// <inheritdoc />
+    public IRunaxClientBuilder<TContract> UseLogging(Action<HttpLoggingOptions>? configure = null)
+    {
+        var options = new HttpLoggingOptions();
+        configure?.Invoke(options);
+
+        return Use(provider =>
+        {
+            // Categorised by the contract, so a log filter can turn one client up without turning
+            // every other client in the application up with it.
+            var logger = provider.GetService<ILoggerFactory>() is { } factory
+                ? factory.CreateLogger(typeof(TContract).FullName ?? typeof(TContract).Name)
+                : throw new InvalidOperationException(
+                    $"UseLogging() needs an ILoggerFactory, and none is registered. Call "
+                    + $"services.AddLogging() — or pass a stage built around your own logger with "
+                    + $"Use(new LoggingMiddleware(logger)).");
+
+            return new LoggingMiddleware(logger, options);
+        });
+    }
+
+    /// <inheritdoc />
+    public IRunaxClientBuilder<TContract> UseBearerToken(
+        IAccessTokenProvider tokens,
+        string headerName = AuthenticationMiddleware.DefaultHeaderName,
+        string? scheme = AuthenticationMiddleware.DefaultScheme)
+    {
+        ArgumentNullException.ThrowIfNull(tokens);
+
+        return Use(new AuthenticationMiddleware(tokens, headerName, scheme));
+    }
+
+    /// <inheritdoc />
+    public IRunaxClientBuilder<TContract> UseBearerToken(Func<string?> token)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+
+        return UseBearerToken(new DelegateAccessTokenProvider(token));
+    }
+
+    /// <inheritdoc />
+    public IRunaxClientBuilder<TContract> UseBearerToken(Func<CancellationToken, ValueTask<string?>> token)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+
+        return UseBearerToken(new DelegateAccessTokenProvider(token));
+    }
+
+    /// <inheritdoc />
+    public IRunaxClientBuilder<TContract> UseCorrelation(Action<CorrelationOptions>? configure = null)
+    {
+        var options = new CorrelationOptions();
+        configure?.Invoke(options);
+
+        return Use(new CorrelationMiddleware(options));
     }
 
     /// <inheritdoc />

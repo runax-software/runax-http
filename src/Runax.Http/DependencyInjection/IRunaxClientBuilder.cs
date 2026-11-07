@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Runax.Http.Pipeline;
 using Runax.Http.Retry;
 using Runax.Http.Serialization;
 
@@ -96,6 +98,64 @@ public interface IRunaxClientBuilder<TContract>
     /// <param name="serializer">The serializer.</param>
     /// <returns>This builder.</returns>
     IRunaxClientBuilder<TContract> UseSerializer(IContentSerializer serializer);
+
+    /// <summary>Adds a pipeline stage, resolved from the container when the client is built.</summary>
+    /// <param name="factory">Creates the stage.</param>
+    /// <returns>This builder.</returns>
+    /// <remarks>
+    /// Where it runs is decided by <see cref="IHttpMiddleware.Order"/>, not by where this call sits
+    /// in the chain.
+    /// </remarks>
+    IRunaxClientBuilder<TContract> Use(Func<IServiceProvider, IHttpMiddleware> factory);
+
+    /// <summary>Adds a pipeline stage.</summary>
+    /// <param name="middleware">The stage. Must be thread-safe; one instance serves every call.</param>
+    /// <returns>This builder.</returns>
+    IRunaxClientBuilder<TContract> Use(IHttpMiddleware middleware);
+
+    /// <summary>
+    /// Logs each attempt through an <see cref="ILogger"/> resolved for this contract.
+    /// </summary>
+    /// <param name="configure">Adjusts what is written.</param>
+    /// <returns>This builder.</returns>
+    /// <remarks>
+    /// Bodies are never logged and header values are not logged unless named — see
+    /// <see cref="HttpLoggingOptions"/> for why those are not switches.
+    /// </remarks>
+    IRunaxClientBuilder<TContract> UseLogging(Action<HttpLoggingOptions>? configure = null);
+
+    /// <summary>Sends a bearer token, re-read on every attempt.</summary>
+    /// <param name="tokens">Supplies the token.</param>
+    /// <param name="headerName">The header to write. Defaults to <c>Authorization</c>.</param>
+    /// <param name="scheme">
+    /// The scheme to prepend. Pass <see langword="null"/> for an <c>X-Api-Key</c>-style header that
+    /// carries the value alone.
+    /// </param>
+    /// <returns>This builder.</returns>
+    IRunaxClientBuilder<TContract> UseBearerToken(
+        IAccessTokenProvider tokens,
+        string headerName = AuthenticationMiddleware.DefaultHeaderName,
+        string? scheme = AuthenticationMiddleware.DefaultScheme);
+
+    /// <summary>Sends a bearer token from a lambda, re-read on every attempt.</summary>
+    /// <param name="token">
+    /// Produces the token. Called per attempt, so a refresh between a failure and its retry is
+    /// picked up — which means this should be a cache read rather than anything that blocks.
+    /// </param>
+    /// <returns>This builder.</returns>
+    IRunaxClientBuilder<TContract> UseBearerToken(Func<string?> token);
+
+    /// <summary>Sends a bearer token fetched asynchronously, re-read on every attempt.</summary>
+    /// <param name="token">Produces the token.</param>
+    /// <returns>This builder.</returns>
+    IRunaxClientBuilder<TContract> UseBearerToken(Func<CancellationToken, ValueTask<string?>> token);
+
+    /// <summary>
+    /// Gives each call an id, keeps it stable across retries, and sends it to the server.
+    /// </summary>
+    /// <param name="configure">Adjusts the header name and trace-context propagation.</param>
+    /// <returns>This builder.</returns>
+    IRunaxClientBuilder<TContract> UseCorrelation(Action<CorrelationOptions>? configure = null);
 
     /// <summary>Configures anything the named helpers do not cover.</summary>
     /// <param name="configure">Applied to this client's options.</param>

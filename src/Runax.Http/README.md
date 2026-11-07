@@ -231,6 +231,33 @@ every declaration — an operator needs a client that provably stops retrying du
 The safety defaults hold: a streamed body is still never retried, and a `POST` needs
 `AllowNonIdempotent = true` (a `[Retry]` on one without it is a build warning, since it would
 otherwise do nothing).
+## Logging, auth and correlation
+
+Middleware that works on every transport, each stage independently opt-in:
+
+```csharp
+services.AddRunaxClient<IRepositoryClient>()
+        .UseCorrelation()                             // stable id per call, W3C traceparent
+        .UseLogging()                                 // a line per attempt
+        .UseBearerToken(() => tokenCache.Current);    // re-read on every attempt
+```
+
+`DelegatingHandler` is where these would normally go, and it only exists in `HttpClient`-land — so
+anything built on it cannot be reused for RestSharp. This sits above the transport boundary
+instead.
+
+**The pipeline runs inside the retry loop, once per attempt.** That is what lets a refreshed token
+reach a retry. Anything that must *not* change between attempts — a correlation id — lives on the
+`RequestContext`, which is created once per call. Neither position serves both on its own.
+
+Ordering is explicit, from `IHttpMiddleware.Order` rather than from where `Use…()` sits in the
+chain: correlation outermost, then logging, then authentication closest to the wire.
+
+The logging stage **never logs bodies**, and header values are off unless named. `Authorization`,
+`Proxy-Authorization`, `Cookie` and `Set-Cookie` are redacted to `***` even when named, and that
+cannot be turned off — an option that can print a bearer token into a log aggregator would
+eventually be used. Full reasoning in
+[docs/pipeline.md](https://github.com/runax-software/runax-http/blob/main/docs/pipeline.md).
 
 ## What the generator catches
 
@@ -277,9 +304,9 @@ reproduces there.
 
 ## Not implemented yet
 
-Logging, auth and correlation middleware are on the
-[roadmap](https://github.com/runax-software/runax-http/blob/main/ROADMAP.md). Retries are built in
-— see above.
+Per-method retry — a `[Retry]` attribute for the one flaky endpoint — is on the
+[roadmap](https://github.com/runax-software/runax-http/blob/main/ROADMAP.md). Registration-level
+retry configuration covers the common case today.
 
 ## License
 

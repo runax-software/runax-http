@@ -328,11 +328,50 @@ public sealed class ClientGenerator : IIncrementalGenerator
                 }
             }
 
-            parameters.Add(new ParameterModel(
-                parameter.Name,
-                ReadWireName(attribute) ?? parameter.Name,
-                binding,
-                typeName));
+            var wireName = ReadWireName(attribute) ?? parameter.Name;
+
+            if (binding == ParameterBinding.Query)
+            {
+                // A query value is formatted, never serialized, so the runtime can only turn it
+                // into text if the type is one it recognises. Left unchecked, an unrecognised type
+                // falls through to ToString() and the server receives "Filter { State = open }" —
+                // garbage, with no warning anywhere.
+                var shape = ClassifyQuery(parameter.Type, out var fields, out var problem);
+
+                if (problem is not null)
+                {
+                    diagnostics.Add(problem.Property is null
+                        ? Diagnostic.Create(
+                            Diagnostics.UnsupportedQueryParameterType,
+                            Location(parameter),
+                            parameter.Name,
+                            method.ToDisplayString(),
+                            parameter.Type.ToDisplayString(),
+                            problem.Advice)
+                        : Diagnostic.Create(
+                            Diagnostics.UnsupportedQueryObjectProperty,
+                            Location(parameter),
+                            parameter.Name,
+                            method.ToDisplayString(),
+                            problem.Property,
+                            problem.PropertyType,
+                            problem.Advice));
+
+                    continue;
+                }
+
+                parameters.Add(new ParameterModel(
+                    parameter.Name,
+                    wireName,
+                    binding,
+                    typeName,
+                    shape,
+                    BuildQueryFields(parameter, fields)));
+
+                continue;
+            }
+
+            parameters.Add(new ParameterModel(parameter.Name, wireName, binding, typeName));
         }
 
         return parameters.ToImmutable();
@@ -680,6 +719,276 @@ public sealed class ClientGenerator : IIncrementalGenerator
             && !string.IsNullOrEmpty(name))
         {
             return name;
+        }
+
+        return null;
+    }
+
+    /// <summary>Why a query parameter cannot be sent, and what to do about it.</summary>
+    private sealed class QueryProblem
+    {
+        internal QueryProblem(string advice, string? property = null, string? propertyType = null)
+        {
+            Advice = advice;
+            Property = property;
+            PropertyType = propertyType;
+        }
+
+        internal string Advice { get; }
+
+        /// <summary>The offending property, when the parameter itself was fine.</summary>
+        internal string? Property { get; }
+
+        internal string? PropertyType { get; }
+    }
+
+    private const string QueryAdvice =
+        "A query value has to be something the runtime can turn into text: a string, number, bool, "
+        + "enum, date, Guid or Uri, anything IFormattable, a collection of those, a dictionary keyed "
+        + "by string, or an object whose properties are all of those.";
+
+    /// <summary>
+    /// Decides how a <c>[Query]</c> parameter becomes query keys.
+    /// </summary>
+    /// <remarks>
+    /// Order matters. A string is an <c>IEnumerable&lt;char&gt;</c> and a dictionary is an
+    /// <c>IEnumerable&lt;KeyValuePair&lt;,&gt;&gt;</c>, so the narrow cases are tested before the
+    /// general one or both would be mis-classified as collections.
+    /// </remarks>
+    private static QueryShape ClassifyQuery(
+        ITypeSymbol type,
+        out ImmutableArray<IPropertySymbol> fields,
+        out QueryProblem? problem)
+    {
+        fields = ImmutableArray<IPropertySymbol>.Empty;
+        problem = null;
+
+        if (IsSendableValue(type))
+            return QueryShape.Scalar;
+
+        if (IsStringKeyedSequence(type))
+            return QueryShape.Dictionary;
+
+        if (TryGetSequenceElement(type, out var element))
+        {
+            if (IsSendableValue(element!))
+                return QueryShape.Scalar;
+
+            problem = new QueryProblem(
+                $"Its items are '{element!.ToDisplayString()}', which cannot be sent. " + QueryAdvice);
+
+            return QueryShape.Scalar;
+        }
+
+        var properties = ReadableProperties(type);
+
+        if (properties.Length == 0)
+        {
+            problem = new QueryProblem(QueryAdvice);
+            return QueryShape.Scalar;
+        }
+
+        foreach (var property in properties)
+        {
+            if (IsSendableValue(property.Type))
+                continue;
+
+            if (TryGetSequenceElement(property.Type, out var itemType) && IsSendableValue(itemType!))
+                continue;
+
+            // Nesting is refused rather than flattened. There is no single convention for the key
+            // of a nested field — ASP.NET Core spells it "filter.state", OpenAPI's deepObject
+            // spells it "filter[state]", and others differ again — so picking one silently would be
+            // the same guess this diagnostic exists to prevent. One level covers the flat filter
+            // and pagination objects that motivate the feature.
+            problem = new QueryProblem(
+                ReadableProperties(property.Type).Length > 0
+                    ? "A query object's properties cannot themselves be objects: there is no one "
+                      + "convention for naming a nested field, so flattening would have to guess. "
+                      + "Flatten the type, or pass the inner object as its own [Query] parameter."
+                    : QueryAdvice,
+                property.Name,
+                property.Type.ToDisplayString());
+
+            return QueryShape.Object;
+        }
+
+        fields = properties;
+
+        return QueryShape.Object;
+    }
+
+    /// <summary>
+    /// The public, readable, non-indexer instance properties of a type and its bases.
+    /// </summary>
+    /// <remarks>
+    /// Inherited properties are included — a filter type with a shared pagination base is the
+    /// obvious shape, and ignoring the base would drop fields silently. Declaration order is
+    /// preserved, most-derived first, so the generated query string is stable across builds.
+    /// </remarks>
+    private static ImmutableArray<IPropertySymbol> ReadableProperties(ITypeSymbol type)
+    {
+        if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct or TypeKind.Interface))
+            return ImmutableArray<IPropertySymbol>.Empty;
+
+        var properties = ImmutableArray.CreateBuilder<IPropertySymbol>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var current = Unwrap(type); current is not null; current = current.BaseType)
+        {
+            if (current.SpecialType == SpecialType.System_Object)
+                break;
+
+            foreach (var member in current.GetMembers().OfType<IPropertySymbol>())
+            {
+                if (member.DeclaredAccessibility != Accessibility.Public
+                    || member.IsStatic
+                    || member.IsIndexer
+                    || member.GetMethod is null
+                    || !seen.Add(member.Name))
+                {
+                    continue;
+                }
+
+                properties.Add(member);
+            }
+        }
+
+        return properties.ToImmutable();
+    }
+
+    /// <summary>Whether <c>RequestValueFormatter</c> can turn this type into text.</summary>
+    /// <remarks>Mirrors that formatter's switch; the two have to agree or this check is a lie.</remarks>
+    private static bool IsSendableValue(ITypeSymbol type)
+    {
+        var bare = StripNullable(type);
+
+        if (bare.TypeKind == TypeKind.Enum)
+            return true;
+
+        switch (bare.SpecialType)
+        {
+            case SpecialType.System_String:
+            case SpecialType.System_Boolean:
+            case SpecialType.System_Char:
+            case SpecialType.System_SByte:
+            case SpecialType.System_Byte:
+            case SpecialType.System_Int16:
+            case SpecialType.System_UInt16:
+            case SpecialType.System_Int32:
+            case SpecialType.System_UInt32:
+            case SpecialType.System_Int64:
+            case SpecialType.System_UInt64:
+            case SpecialType.System_Single:
+            case SpecialType.System_Double:
+            case SpecialType.System_Decimal:
+            case SpecialType.System_DateTime:
+                return true;
+        }
+
+        // Uri is handled explicitly by the formatter and is neither a special type nor
+        // IFormattable, so it has to be named here too.
+        if (bare.ToDisplayString() is "System.DateTimeOffset" or "System.DateOnly" or "System.TimeOnly"
+            or "System.TimeSpan" or "System.Guid" or "System.Uri")
+        {
+            return true;
+        }
+
+        return bare.AllInterfaces.Any(i => i.ToDisplayString() == "System.IFormattable");
+    }
+
+    /// <summary>Whether this is a sequence of key/value pairs keyed by string.</summary>
+    private static bool IsStringKeyedSequence(ITypeSymbol type)
+    {
+        if (!TryGetSequenceElement(type, out var element))
+            return false;
+
+        return element is INamedTypeSymbol { Arity: 2 } pair
+               && pair.ConstructedFrom.ToDisplayString()
+                   == "System.Collections.Generic.KeyValuePair<TKey, TValue>"
+               && pair.TypeArguments[0].SpecialType == SpecialType.System_String;
+    }
+
+    /// <summary>The element type of an <c>IEnumerable&lt;T&gt;</c>, excluding string.</summary>
+    private static bool TryGetSequenceElement(ITypeSymbol type, out ITypeSymbol? element)
+    {
+        element = null;
+
+        if (type.SpecialType == SpecialType.System_String)
+            return false;
+
+        var bare = StripNullable(type);
+
+        if (bare is INamedTypeSymbol { Arity: 1 } self
+            && self.ConstructedFrom.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>")
+        {
+            element = self.TypeArguments[0];
+            return true;
+        }
+
+        foreach (var implemented in bare.AllInterfaces)
+        {
+            if (implemented is { Arity: 1 }
+                && implemented.ConstructedFrom.ToDisplayString()
+                    == "System.Collections.Generic.IEnumerable<T>")
+            {
+                element = implemented.TypeArguments[0];
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static ITypeSymbol StripNullable(ITypeSymbol type)
+        => type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+            ? nullable.TypeArguments[0]
+            : type;
+
+    private static INamedTypeSymbol? Unwrap(ITypeSymbol type)
+        => StripNullable(type) as INamedTypeSymbol;
+
+    /// <summary>
+    /// The access expression for each field of an expanded query object.
+    /// </summary>
+    /// <remarks>
+    /// Null-conditional unless the parameter is a non-nullable struct, where it would not compile
+    /// and a null object is impossible anyway. Using <c>?.</c> is also what makes a null object
+    /// contribute nothing: every field reads as null, and a null query value is already omitted.
+    /// </remarks>
+    private static ImmutableArray<QueryFieldModel> BuildQueryFields(
+        IParameterSymbol parameter,
+        ImmutableArray<IPropertySymbol> properties)
+    {
+        if (properties.IsDefaultOrEmpty)
+            return ImmutableArray<QueryFieldModel>.Empty;
+
+        var nullable = parameter.Type.IsReferenceType
+                       || parameter.Type is INamedTypeSymbol
+                       {
+                           OriginalDefinition.SpecialType: SpecialType.System_Nullable_T
+                       };
+
+        var accessor = nullable ? "?." : ".";
+        var fields = ImmutableArray.CreateBuilder<QueryFieldModel>(properties.Length);
+
+        foreach (var property in properties)
+        {
+            fields.Add(new QueryFieldModel(
+                ReadPropertyWireName(property) ?? property.Name,
+                $"{parameter.Name}{accessor}{property.Name}"));
+        }
+
+        return fields.ToImmutable();
+    }
+
+    /// <summary>A property's <c>[Query("name")]</c> rename, if it carries one.</summary>
+    private static string? ReadPropertyWireName(IPropertySymbol property)
+    {
+        foreach (var attribute in property.GetAttributes())
+        {
+            if (attribute.AttributeClass?.ToDisplayString() == $"{AttributesNamespace}.QueryAttribute")
+                return ReadWireName(attribute);
         }
 
         return null;

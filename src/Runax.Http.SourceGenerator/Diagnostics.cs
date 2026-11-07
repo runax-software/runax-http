@@ -140,6 +140,17 @@ internal static class Diagnostics
         "'{0}' declares [Retry({1})]. Attempts include the first, so the lowest meaningful value is "
         + "1 — which says this method must not be retried even though its client is configured to.");
 
+    internal static readonly DiagnosticDescriptor UnsupportedQueryParameterType = Error(
+        "RXH022",
+        "This parameter type cannot be sent as a query value",
+        "'{0}' on '{1}' is typed '{2}', which cannot be sent in a query string. {3}");
+
+    internal static readonly DiagnosticDescriptor UnsupportedQueryObjectProperty = Error(
+        "RXH023",
+        "A query object property cannot be sent",
+        "'{0}' on '{1}' is a query object, but its property '{2}' is typed '{3}', which cannot be "
+        + "sent in a query string. {4}");
+
     private static DiagnosticDescriptor Error(string id, string title, string format)
         => new(id, title, format, Category, DiagnosticSeverity.Error, isEnabledByDefault: true);
 

@@ -38,6 +38,8 @@ removal added `RXH019` rather than repurposing the number.
 | [RXH019](#rxh019) | Error | A body parameter typed wrong for its format |
 | [RXH020](#rxh020) | **Warning** | A `[Retry]` that will not retry anything |
 | [RXH021](#rxh021) | Error | A `[Retry]` with fewer than one attempt |
+| [RXH022](#rxh022) | Error | A `[Query]` type that cannot be sent |
+| [RXH023](#rxh023) | Error | A query object property that cannot be sent |
 
 ---
 
@@ -305,6 +307,46 @@ Attempts include the first, so the lowest meaningful value is `1`.
 
 **Fix:** use `[Retry(1)]` if you meant "do not retry this method even though the client is
 configured to" — which is a real thing to want. Otherwise give it the attempt count you intended.
+
+### RXH022
+
+**This parameter type cannot be sent as a query value.**
+
+```csharp
+[Get("/search")]
+Task<Results> SearchAsync([Query] Opaque value);        // ✗
+```
+
+A query value is formatted, never serialized, so the runtime can only send a type it recognises: a
+string, number, bool, enum, date, `Guid` or `Uri`, anything `IFormattable`, a collection of those,
+a dictionary keyed by string, or an object whose properties are all of those.
+
+Without this diagnostic such a type fell through to `ToString()` and the server received
+`?filter=SearchFilter { State = open, Page = 2 }` — garbage, with no warning. That is exactly the
+silent-wrong-request this library exists to prevent.
+
+**Fix:** pass the scalars individually, pass a dictionary, or make the type a flat object whose
+properties are all sendable — see [Query objects](defining-a-client.md#query-objects).
+
+### RXH023
+
+**A query object property cannot be sent.**
+
+```csharp
+public sealed record Inner(string State);
+public sealed record Outer(Inner Nested, int Page);
+
+[Get("/search")]
+Task<Results> SearchAsync([Query] Outer filter);        // ✗ Nested
+```
+
+The parameter is expandable but one of its properties is not sendable. The most common cause is a
+**nested object**, which is refused rather than flattened: ASP.NET Core spells a nested key
+`filter.state`, OpenAPI's `deepObject` spells it `filter[state]`, and others differ again — so
+flattening would have to guess, which is the thing [`RXH022`](#rxh022) exists to stop.
+
+**Fix:** flatten the type, pass the inner object as its own `[Query]` parameter, or drop the
+property.
 
 ## Suppressing
 

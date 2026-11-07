@@ -99,6 +99,14 @@ Check(pipelineLog.Count > 0, "pipeline stage ran under AOT");
 var authenticated = await things.GetAsync(7);
 Check(authenticated.Id == 7, "a request through the full pipeline still round-trips");
 
+// Query-object expansion under AOT. The generator resolved these keys at compile time, so this
+// line working is the evidence that nothing walks the type's properties at run time.
+var searched = await things.SearchAsync(new ThingFilter { Name = "widget", PerPage = 50 });
+Check(searched.Id == 7, "query object expanded");
+
+var dynamic = await things.SearchDynamicAsync(new Dictionary<string, string> { ["state"] = "open" });
+Check(dynamic.Id == 7, "dictionary query spread");
+
 Console.WriteLine("AOT smoke test passed.");
 return 0;
 

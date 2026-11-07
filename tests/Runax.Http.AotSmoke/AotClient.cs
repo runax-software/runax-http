@@ -40,6 +40,28 @@ internal interface IThingClient
     [Response(404, typeof(ThingError))]
     [Response(typeof(Thing))]
     Task<ApiResult> GetQuirkyAsync(int id, CancellationToken ct = default);
+
+    /// <summary>
+    /// A query object, expanded to one key per property by the generator. Here to prove the
+    /// expansion needs no reflection: a reflective implementation would fail this publish.
+    /// </summary>
+    [Get("/things")]
+    Task<Thing> SearchAsync([Query] ThingFilter filter, CancellationToken ct = default);
+
+    /// <summary>A dictionary query argument, whose keys are spread in at run time.</summary>
+    [Get("/things/dynamic")]
+    Task<Thing> SearchDynamicAsync(
+        [Query] global::System.Collections.Generic.Dictionary<string, string> filters,
+        CancellationToken ct = default);
+}
+
+/// <summary>A flat filter, expanded into the query string at compile time.</summary>
+internal sealed record ThingFilter
+{
+    public string? Name { get; init; }
+
+    [Query("per_page")]
+    public int PerPage { get; init; }
 }
 
 /// <summary>An error envelope, for the dispatched path.</summary>

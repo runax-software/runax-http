@@ -663,6 +663,145 @@ public class DiagnosticTests
         run.Ids.ShouldBeEmpty();
     }
 
+    [Theory]
+    [InlineData("string")]
+    [InlineData("int")]
+    [InlineData("int?")]
+    [InlineData("bool")]
+    [InlineData("global::System.Guid")]
+    [InlineData("global::System.DateTimeOffset")]
+    [InlineData("global::System.Uri")]
+    [InlineData("global::System.Collections.Generic.IEnumerable<string>")]
+    [InlineData("string[]")]
+    public void A_sendable_query_type_is_accepted(string type)
+    {
+        var run = GeneratorHarness.RunContract($$"""
+            [BaseAddress("https://api.example.com")]
+            public interface IGood
+            {
+                [Get("/things")]
+                Task<Thing> GetAsync([Query] {{type}} value);
+            }
+            """);
+
+        run.Ids.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void A_query_object_is_expanded_rather_than_rejected()
+    {
+        var run = GeneratorHarness.RunContract("""
+            [BaseAddress("https://api.example.com")]
+            public interface IGood
+            {
+                [Get("/things")]
+                Task<Thing> GetAsync([Query] Filter filter);
+            }
+
+            public sealed record Filter(string State, int Page);
+            """);
+
+        run.Ids.ShouldBeEmpty();
+
+        // One key per property, resolved at compile time — which is the whole point: no reflection.
+        run.AllSource.ShouldContain("\"State\"");
+        run.AllSource.ShouldContain("\"Page\"");
+        run.AllSource.ShouldNotContain("\"filter\"");
+    }
+
+    [Fact]
+    public void A_dictionary_query_parameter_is_spread_at_run_time()
+    {
+        var run = GeneratorHarness.RunContract("""
+            [BaseAddress("https://api.example.com")]
+            public interface IGood
+            {
+                [Get("/things")]
+                Task<Thing> GetAsync([Query] Dictionary<string, string> filters);
+            }
+            """);
+
+        run.Ids.ShouldBeEmpty();
+        run.AllSource.ShouldContain("QueryFields.From");
+    }
+
+    [Fact]
+    public void RXH022_a_query_parameter_that_cannot_be_sent()
+    {
+        // The bug this replaced: a type with no usable properties previously fell through to
+        // ToString() and the server received "Opaque" with no warning anywhere.
+        var run = GeneratorHarness.RunContract("""
+            public interface IBad
+            {
+                [Get("/things")]
+                Task<Thing> GetAsync([Query] Opaque value);
+            }
+
+            public sealed class Opaque
+            {
+                private int Hidden { get; set; }
+            }
+            """);
+
+        run.Ids.ShouldContain("RXH022");
+        run.Message("RXH022").ShouldContain("query string");
+    }
+
+    [Fact]
+    public void RXH022_a_collection_of_objects_cannot_be_sent()
+    {
+        var run = GeneratorHarness.RunContract("""
+            public interface IBad
+            {
+                [Get("/things")]
+                Task<Thing> GetAsync([Query] IEnumerable<Filter> filters);
+            }
+
+            public sealed record Filter(string State);
+            """);
+
+        run.Ids.ShouldContain("RXH022");
+        run.Message("RXH022").ShouldContain("items");
+    }
+
+    [Fact]
+    public void RXH023_a_query_object_with_a_nested_object_property()
+    {
+        // Refused rather than flattened: ASP.NET Core spells a nested key "filter.state" and
+        // OpenAPI's deepObject spells it "filter[state]", so flattening would have to guess.
+        var run = GeneratorHarness.RunContract("""
+            public interface IBad
+            {
+                [Get("/things")]
+                Task<Thing> GetAsync([Query] Outer filter);
+            }
+
+            public sealed record Inner(string State);
+            public sealed record Outer(Inner Nested, int Page);
+            """);
+
+        run.Ids.ShouldContain("RXH023");
+        run.Message("RXH023").ShouldContain("Nested");
+        run.Message("RXH023").ShouldContain("nested field");
+    }
+
+    [Fact]
+    public void RXH023_names_the_property_that_cannot_be_sent()
+    {
+        var run = GeneratorHarness.RunContract("""
+            public interface IBad
+            {
+                [Get("/things")]
+                Task<Thing> GetAsync([Query] Filter filter);
+            }
+
+            public sealed record Filter(string State, System.Text.StringBuilder Builder);
+            """);
+
+        run.Ids.ShouldContain("RXH023");
+        run.Message("RXH023").ShouldContain("Builder");
+    }
+
     [Fact]
     public void Every_diagnostic_reports_a_location_in_the_user_code()
     {

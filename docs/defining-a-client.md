@@ -68,6 +68,58 @@ default header.
 A null **path** value is an error at run time. `/repos//issues` addresses something other than what
 the caller named, and would most likely 404 a long way from the cause.
 
+### Query objects
+
+A whole object works as a `[Query]` parameter, expanded to one key per property:
+
+```csharp
+public sealed record SearchFilter
+{
+    public string? State { get; init; }
+
+    [Query("per_page")]
+    public int PerPage { get; init; } = 30;
+
+    public IEnumerable<string>? Labels { get; init; }
+}
+
+[Get("/search")]
+Task<Results> SearchAsync([Query] SearchFilter filter, CancellationToken ct = default);
+```
+
+sends `?State=open&per_page=50&Labels=bug&Labels=docs`.
+
+The generator resolves the properties at compile time, so this stays reflection-free and survives
+trimming — which is why only a generator can offer it.
+
+- **Field names are the property names, exactly as written.** Nothing in this library transforms a
+  name, so `State` sends `State`. `[Query("per_page")]` on the property renames it, the same way it
+  renames a parameter.
+- **Inherited properties are included**, so a filter sharing a pagination base type works.
+- **Null properties are omitted**, matching a null parameter. A null object contributes nothing at
+  all.
+- **Collection properties repeat their key**, matching a collection parameter.
+- **Values go through the same formatter**, so a `DateTimeOffset` property spells exactly what a
+  `DateTimeOffset` parameter would.
+- **Nested objects are refused** ([`RXH023`](diagnostics.md#rxh023)). There is no single convention
+  for naming a nested field — ASP.NET Core spells it `filter.state`, OpenAPI's `deepObject` spells
+  it `filter[state]` — so flattening would have to guess. Flatten the type, or pass the inner
+  object as its own parameter.
+
+A **dictionary** keyed by string works too, contributing its own keys:
+
+```csharp
+[Get("/search")]
+Task<Results> SearchAsync([Query] Dictionary<string, string?> filters, CancellationToken ct = default);
+```
+
+That is the one query shape whose keys are not known until run time, so it is the one resolved
+there rather than by the generator.
+
+A `[Query]` type the runtime cannot turn into text is [`RXH022`](diagnostics.md#rxh022), a build
+error. Before that diagnostic existed, such a type fell through to `ToString()` and the server
+received `?filter=SearchFilter { State = open, Page = 2 }` with no warning anywhere.
+
 ### Value formatting
 
 Every value — path, query or header — is formatted the same way, invariantly:

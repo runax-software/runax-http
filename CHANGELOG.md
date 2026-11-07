@@ -27,7 +27,20 @@ All packages in the repository are versioned together.
   - Unbounded by default. Adding a budget nobody asked for would change the behaviour of every
     existing client on upgrade.
   - `Timeout`'s documentation now says "per attempt", which it never did.
-
+- **Query objects.** A whole object as a `[Query]` parameter is expanded to one key per property,
+  resolved by the generator at compile time — so it needs no reflection and survives trimming,
+  which is why only a generator can offer it. Field names are the property names exactly as
+  written, because nothing in this library silently transforms a name; `[Query("per_page")]` on a
+  property renames it. Inherited properties are included, null properties are omitted, collection
+  properties repeat their key, and values go through the same formatter as every other query value
+  so a date spells the same thing either way.
+  - **Nested objects are refused** rather than flattened. ASP.NET Core spells a nested key
+    `filter.state` and OpenAPI's `deepObject` spells it `filter[state]`; picking one silently would
+    be the same guess the new diagnostics exist to prevent.
+- **Dictionary query parameters.** A sequence of `KeyValuePair<string, _>` contributes its own keys
+  — the one query shape whose keys are not known until run time, and so the one resolved there.
+- Two new diagnostics. `RXH022` rejects a `[Query]` type the runtime cannot turn into text;
+  `RXH023` names the property of an otherwise-expandable object that cannot be sent.
 - **`[Retry]` on a method**, for the one flaky endpoint on an otherwise healthy API. Surfaces an
   attempt count, `DelayMilliseconds` (milliseconds because a `TimeSpan` cannot be an attribute
   argument) and `AllowNonIdempotent`. It refines the client's registered settings rather than
@@ -99,12 +112,17 @@ All packages in the repository are versioned together.
 
 ### Fixed
 
+- **A `[Query]` object no longer sends `ToString()` to your server.** `[Query] SearchFilter filter`
+  compiled clean, raised no diagnostic, and sent
+  `?filter=SearchFilter%20%7B%20State%20%3D%20open...` — the record's `ToString()`, URL-encoded. A
+  non-record class sent its type name. `RequestValueFormatter`'s `ToString()` fallback is right for
+  an unknown `IFormattable` but should never have been reachable by a type the generator could see
+  was wrong, and a multi-field filter object is the most natural thing to try.
 - **A rebuilt request no longer changes underneath a transport.** `TransportRequest` is documented
   as immutable and a transport is entitled to hold on to one, but the pipeline handed over its live
   header list — so on a retry the next attempt's header changes rewrote a request that had already
   been sent. It showed up as the first attempt appearing to carry the second attempt's token, and
   was caught by the test written to prove token refresh worked.
-
 - **`BodyFormat.UrlEncoded` and `BodyFormat.Multipart`** are now emitted, completing the body
   formats the attribute has always advertised. A form body comes from a sequence of key/value pairs
   — a `Dictionary<string, string>`, or `IEnumerable<KeyValuePair<string, object?>>` for values that

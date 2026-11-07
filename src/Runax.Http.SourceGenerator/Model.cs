@@ -21,15 +21,57 @@ internal enum ParameterBinding
     CancellationToken
 }
 
+/// <summary>How a <c>[Query]</c> parameter turns into query keys.</summary>
+internal enum QueryShape
+{
+    /// <summary>One key, from the parameter itself. A collection repeats that key per item.</summary>
+    Scalar,
+
+    /// <summary>One key per property, resolved at compile time.</summary>
+    Object,
+
+    /// <summary>One key per entry, resolved at run time from the sequence's own keys.</summary>
+    Dictionary
+}
+
+/// <summary>One field of an expanded query object.</summary>
+/// <remarks>
+/// The access expression is built by the generator rather than the emitter, because whether a null
+/// object is reachable — and therefore whether <c>?.</c> is needed — is a fact about the parameter's
+/// type that only the symbol knows.
+/// </remarks>
+internal sealed class QueryFieldModel
+{
+    internal QueryFieldModel(string wireName, string access)
+    {
+        WireName = wireName;
+        Access = access;
+    }
+
+    /// <summary>The query key this field travels under.</summary>
+    internal string WireName { get; }
+
+    /// <summary>The expression that reads it, such as <c>filter?.State</c>.</summary>
+    internal string Access { get; }
+}
+
 /// <summary>What the generated method does with one of its parameters.</summary>
 internal sealed class ParameterModel
 {
-    internal ParameterModel(string name, string wireName, ParameterBinding binding, string typeName)
+    internal ParameterModel(
+        string name,
+        string wireName,
+        ParameterBinding binding,
+        string typeName,
+        QueryShape queryShape = QueryShape.Scalar,
+        ImmutableArray<QueryFieldModel> queryFields = default)
     {
         Name = name;
         WireName = wireName;
         Binding = binding;
         TypeName = typeName;
+        QueryShape = queryShape;
+        QueryFields = queryFields.IsDefault ? ImmutableArray<QueryFieldModel>.Empty : queryFields;
     }
 
     /// <summary>The C# parameter name, used when emitting the method signature and body.</summary>
@@ -46,6 +88,12 @@ internal sealed class ParameterModel
 
     /// <summary>The fully qualified parameter type, as written into the generated signature.</summary>
     internal string TypeName { get; }
+
+    /// <summary>How this parameter turns into query keys. Only meaningful for a query binding.</summary>
+    internal QueryShape QueryShape { get; }
+
+    /// <summary>The fields of an expanded query object, empty for every other shape.</summary>
+    internal ImmutableArray<QueryFieldModel> QueryFields { get; }
 }
 
 /// <summary>One <c>[Response]</c> declaration: a condition, and the type to use when it holds.</summary>

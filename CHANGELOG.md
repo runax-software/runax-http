@@ -10,6 +10,24 @@ All packages in the repository are versioned together.
 
 ### Added
 
+- **`WithTotalTimeout`** — a budget for the whole call, retries and the waits between them
+  included. `Timeout` bounds a single *attempt*, which reads like a call budget and is not one: the
+  transport request carrying it is built once, before the retry loop, so every attempt gets the
+  same allowance and the caller waits for all of them plus the backoff. Five attempts at thirty
+  seconds is over two and a half minutes with nothing in the configuration looking wrong, and
+  nothing capped it.
+  - Exceeding the budget throws `TransportException` rather than surfacing as a cancellation,
+    matching how a per-attempt timeout is already reported. A caller's own cancellation still
+    surfaces as a cancellation.
+  - Implemented as a linked token rather than a timeout handed to the transport, because the budget
+    has to cover the waits *between* attempts, which happen in the executor rather than inside a
+    send. Translated outside the retry loop on purpose: thrown inside, a `TransportException` would
+    be caught by the loop's own retry guard and the budget would buy more attempts instead of
+    ending the call.
+  - Unbounded by default. Adding a budget nobody asked for would change the behaviour of every
+    existing client on upgrade.
+  - `Timeout`'s documentation now says "per attempt", which it never did.
+
 - **`[Retry]` on a method**, for the one flaky endpoint on an otherwise healthy API. Surfaces an
   attempt count, `DelayMilliseconds` (milliseconds because a `TimeSpan` cannot be an attribute
   argument) and `AllowNonIdempotent`. It refines the client's registered settings rather than
@@ -101,6 +119,24 @@ All packages in the repository are versioned together.
 ## [1.0.0] - 2026-11-07
 
 ### Added
+
+- **`WithTotalTimeout`** — a budget for the whole call, retries and the waits between them
+  included. `Timeout` bounds a single *attempt*, which reads like a call budget and is not one: the
+  transport request carrying it is built once, before the retry loop, so every attempt gets the
+  same allowance and the caller waits for all of them plus the backoff. Five attempts at thirty
+  seconds is over two and a half minutes with nothing in the configuration looking wrong, and
+  nothing capped it.
+  - Exceeding the budget throws `TransportException` rather than surfacing as a cancellation,
+    matching how a per-attempt timeout is already reported. A caller's own cancellation still
+    surfaces as a cancellation.
+  - Implemented as a linked token rather than a timeout handed to the transport, because the budget
+    has to cover the waits *between* attempts, which happen in the executor rather than inside a
+    send. Translated outside the retry loop on purpose: thrown inside, a `TransportException` would
+    be caught by the loop's own retry guard and the budget would buy more attempts instead of
+    ending the call.
+  - Unbounded by default. Adding a budget nobody asked for would change the behaviour of every
+    existing client on upgrade.
+  - `Timeout`'s documentation now says "per attempt", which it never did.
 
 - **`Runax.Http.TestKit`** — `RunaxClientHarness.For<TContract>()` stands up a real container, the
   real generated client and the real runtime over a `TestTransport` that records instead of sending.

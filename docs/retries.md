@@ -103,6 +103,26 @@ ignored and the backoff curve decides.
 Not retried: a capability gap, a cancelled request, or anything else thrown before the request
 reached the transport.
 
+## Bound the call, not just the attempt
+
+`WithTimeout` bounds a **single attempt**. Retries multiply it and the backoff is on top, so five
+attempts at thirty seconds is over two and a half minutes — with nothing in the configuration
+looking wrong. Set a budget for the call:
+
+```csharp
+services.AddRunaxClient<IRepositoryClient>()
+        .WithRetry(5)
+        .WithTimeout(TimeSpan.FromSeconds(10))        // per attempt
+        .WithTotalTimeout(TimeSpan.FromSeconds(20));  // the whole call, retries and waits included
+```
+
+Exceeding the budget throws `TransportException`, not a cancellation — "the deadline passed" and
+"the caller changed their mind" lead to different retry and alerting decisions. Your own
+`CancellationToken` still surfaces as a cancellation.
+
+Worth setting on any client with retries on. It is unbounded by default, because adding a budget
+nobody asked for would change the behaviour of every existing client on upgrade.
+
 ## Where it sits
 
 Above the transport boundary. Every transport gets the same retry behaviour, none of them

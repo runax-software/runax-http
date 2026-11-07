@@ -33,10 +33,36 @@ public sealed class RunaxClientOptions
     public string? TransportName { get; set; }
 
     /// <summary>
-    /// How long a request may take when the method does not say. <see langword="null"/> leaves it
-    /// to the transport.
+    /// How long a single attempt may take when the method does not say. <see langword="null"/>
+    /// leaves it to the transport.
     /// </summary>
+    /// <remarks>
+    /// Per <em>attempt</em>, not per call. With retries on, the wall-clock a caller waits is this
+    /// multiplied by the attempt count, plus the backoff between them — so five attempts at thirty
+    /// seconds is over two and a half minutes. Use <see cref="TotalTimeout"/> to bound the call
+    /// itself.
+    /// </remarks>
     public TimeSpan? Timeout { get; set; }
+
+    /// <summary>
+    /// How long the whole call may take, including every retry and the waits between them.
+    /// <see langword="null"/> means unbounded.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The budget a caller actually experiences, and the one worth setting. <see cref="Timeout"/>
+    /// bounds an attempt, which is not the same thing: retries multiply it, and the backoff is on
+    /// top. A client with retries on and no total budget can block for minutes with nothing in its
+    /// configuration looking wrong.
+    /// </para>
+    /// <para>
+    /// Exceeding it surfaces as <see cref="TransportException"/> rather than a cancellation,
+    /// matching how a per-attempt timeout is reported: "the deadline passed" and "the caller
+    /// changed their mind" lead to different handling, and conflating them sends retry logic and
+    /// alerting down the wrong path. A caller's own cancellation still surfaces as a cancellation.
+    /// </para>
+    /// </remarks>
+    public TimeSpan? TotalTimeout { get; set; }
 
     /// <summary>
     /// The serializer for request and response bodies. <see langword="null"/> uses the one

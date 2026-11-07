@@ -228,7 +228,32 @@ public sealed class HttpContractExecutor : IHttpContractExecutor
         // token on a retry while a correlation id stays put. See RequestContext.
         var context = new RequestContext(request, transportRequest, transport);
 
-        return await SendWithRetriesAsync(context, retry, cancellationToken).ConfigureAwait(false);
+        if (_options.TotalTimeout is not { } budget)
+            return await SendWithRetriesAsync(context, retry, cancellationToken).ConfigureAwait(false);
+
+        // A linked source rather than a timeout handed to the transport: the budget has to cover
+        // the waits between attempts too, and those happen here rather than inside a send.
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(budget);
+
+        try
+        {
+            return await SendWithRetriesAsync(context, retry, deadline.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested
+                                                 && deadline.IsCancellationRequested)
+        {
+            // Translated outside the retry loop on purpose. Thrown inside, a TransportException
+            // would be caught by the loop's retry guard and the budget would buy more attempts
+            // instead of ending the call.
+            throw new TransportException(
+                $"{request.Method.ToString().ToUpperInvariant()} {transportRequest.RequestUri} "
+                + $"exceeded its total budget of {budget}.")
+            {
+                TransportName = transport.Name,
+                RequestUri = transportRequest.RequestUri
+            };
+        }
     }
 
     /// <summary>

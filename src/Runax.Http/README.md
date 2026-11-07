@@ -207,6 +207,11 @@ without it every client that failed at the same moment retries at the same momen
 service gets hit by a synchronized wave. A capability gap is never retried — waiting will not give
 a transport an ability it lacks.
 
+`WithTimeout` bounds one **attempt**; `WithTotalTimeout` bounds the **call**, retries and backoff
+included. Worth setting whenever retries are on — otherwise five attempts at thirty seconds is over
+two and a half minutes, and nothing in the configuration looks wrong. Exceeding the budget throws
+`TransportException`, not a cancellation.
+
 Retries live above the transport boundary, so every transport gets the same behaviour and none of
 them implements it. Swapping a transport does not change your retry semantics.
 

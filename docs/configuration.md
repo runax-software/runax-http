@@ -27,7 +27,8 @@ earns one. See [Serialization](serialization.md).
 services.AddRunaxClient<IRepositoryClient>()
         .WithBaseAddress("https://api.example.com/v3")    // or a Uri
         .UseTransport(RestSharpTransport.TransportName)
-        .WithTimeout(TimeSpan.FromSeconds(10))
+        .WithTimeout(TimeSpan.FromSeconds(10))            // per attempt
+        .WithTotalTimeout(TimeSpan.FromSeconds(30))       // the whole call, retries included
         .WithDefaultHeader("User-Agent", "my-service/1.0")
         .WithRetry(3)                                     // or WithRetry(options => …)
         .UseSerializer(legacySerializer)
@@ -45,7 +46,8 @@ Everything `Configure(...)` can reach.
 | --- | --- | --- |
 | `BaseAddress` | from `[BaseAddress]` | the absolute address request paths resolve against |
 | `TransportName` | from `[Transport]` | which transport this client's requests go over |
-| `Timeout` | none | how long a request may take when the method does not say |
+| `Timeout` | none | how long a single **attempt** may take when the method does not say |
+| `TotalTimeout` | none | how long the whole **call** may take, retries and backoff included |
 | `Serializer` | the shared one | this client's serializer |
 | `DefaultHeaders` | from interface `[Header]`s | headers sent with every request |
 | `Retry` | off | see [Retries](retries.md) |

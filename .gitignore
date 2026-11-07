@@ -207,3 +207,8 @@ apm_modules/
 
 # Claude Code personal/local settings
 .claude/settings.local.json
+
+# Agent worktrees. Each is a live git worktree of this repository, so a `git add -A` from the
+# root otherwise commits them as embedded repositories — which is what happened once before
+# this line existed.
+.claude/worktrees/

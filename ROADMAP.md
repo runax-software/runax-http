@@ -10,8 +10,6 @@ Ordered by what each item unblocks rather than by effort. Nothing here is a comm
 
 - [x] Repository, build and CI infrastructure: Central Package Management, multi-targeting
   (`net8.0;net9.0;net10.0`), warnings-as-errors, SourceLink, Trusted Publishing to NuGet.
-- [ ] `Runax.` ID prefix reservation on nuget.org (the existing `Runax.*` packages are
-  unreserved, so the prefix is squattable and ships without an owner checkmark).
 
 ## Milestone 1 — The core loop
 
@@ -60,7 +58,6 @@ Ordered by what each item unblocks rather than by effort. Nothing here is a comm
 - [x] **Generator tests** — a `CSharpGeneratorDriver` harness, one test per diagnostic, and
   assertions that the emitted code compiles cleanly, keeps nullable annotations, registers itself
   and contains nothing reflective.
-
 - [x] **`Runax.Http.TestKit`** — a recording transport and a harness that stands up the real
   generated client and runtime over it, so consumers assert on the request their client built
   rather than on a mock that skips the code under test.
@@ -73,9 +70,9 @@ Ordered by what each item unblocks rather than by effort. Nothing here is a comm
   can't be reused for the other transports; this is the replacement.
 - [ ] **Per-method retry** — a `[Retry]` attribute, for the one flaky endpoint on an otherwise
   healthy API. Registration-level configuration covers the common case today.
-- [ ] **AOT and trimming** — source-generated JSON, an `AotSmoke` publish in CI that fails on
-  any trim or AOT warning.
-- [ ] **Per-package READMEs and docs** — one documentation page per concept, one README per
+- [x] **AOT and trimming** — source-generated JSON, and an `AotSmoke` publish in CI that fails on
+  any trim or AOT warning and then runs the binary.
+- [x] **Per-package READMEs and docs** — one documentation page per concept, one README per
   shipped package.
 
 ## Backlog

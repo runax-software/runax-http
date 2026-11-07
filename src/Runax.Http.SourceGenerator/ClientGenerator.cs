@@ -51,6 +51,32 @@ public sealed class ClientGenerator : IIncrementalGenerator
             if (result.Model is not null)
                 ctx.AddSource(result.HintName!, Emitter.Emit(result.Model));
         });
+
+        // JSON context coverage is a second, compilation-wide pass: it needs every contract's
+        // serialized types joined against every JsonSerializerContext, which no per-interface
+        // analysis can see. See JsonContextCoverage for why this is a diagnostic and not an
+        // emitted context.
+        var contexts = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                static (node, _) => JsonContextCoverage.CouldBeJsonContext(node),
+                static (ctx, token) => JsonContextCoverage.ReadContext(ctx, token))
+            .Where(static found => found is not null);
+
+        context.RegisterSourceOutput(
+            candidates.Collect().Combine(contexts.Collect()),
+            static (ctx, pair) =>
+            {
+                var serialized = pair.Left
+                    .SelectMany(static result => result!.SerializedTypes)
+                    .ToImmutableArray();
+
+                var declared = pair.Right
+                    .Select(static found => found!)
+                    .ToImmutableArray();
+
+                foreach (var diagnostic in JsonContextCoverage.Check(serialized, declared))
+                    ctx.ReportDiagnostic(diagnostic);
+            });
     }
 
     private static AnalysisResult? Analyze(GeneratorSyntaxContext context, CancellationToken token)
@@ -151,7 +177,11 @@ public sealed class ClientGenerator : IIncrementalGenerator
             declaredTransports.ToImmutable(),
             methods.ToImmutable());
 
-        return new AnalysisResult(model, $"{contract.Name}.RunaxClient.g.cs", diagnostics.ToImmutable());
+        return new AnalysisResult(
+            model,
+            $"{contract.Name}.RunaxClient.g.cs",
+            diagnostics.ToImmutable(),
+            JsonContextCoverage.Collect(model, Location(contract)));
     }
 
     private static MethodModel? AnalyzeMethod(
@@ -1201,11 +1231,18 @@ public sealed class ClientGenerator : IIncrementalGenerator
     /// <summary>What one interface produced: a model to emit, diagnostics, or both.</summary>
     private sealed class AnalysisResult
     {
-        internal AnalysisResult(ClientModel? model, string? hintName, ImmutableArray<Diagnostic> diagnostics)
+        internal AnalysisResult(
+            ClientModel? model,
+            string? hintName,
+            ImmutableArray<Diagnostic> diagnostics,
+            ImmutableArray<SerializedTypeRef> serializedTypes = default)
         {
             Model = model;
             HintName = hintName;
             Diagnostics = diagnostics;
+            SerializedTypes = serializedTypes.IsDefault
+                ? ImmutableArray<SerializedTypeRef>.Empty
+                : serializedTypes;
         }
 
         internal ClientModel? Model { get; }
@@ -1213,5 +1250,12 @@ public sealed class ClientGenerator : IIncrementalGenerator
         internal string? HintName { get; }
 
         internal ImmutableArray<Diagnostic> Diagnostics { get; }
+
+        /// <summary>
+        /// What this contract hands to the serializer, for the compilation-wide JSON context
+        /// check. Empty for a result that produced no model, so the early returns above need no
+        /// change.
+        /// </summary>
+        internal ImmutableArray<SerializedTypeRef> SerializedTypes { get; }
     }
 }

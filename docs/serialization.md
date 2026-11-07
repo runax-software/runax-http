@@ -35,6 +35,11 @@ AOT-correct path is the one without it.
 A client with no serializer registered fails when it is first resolved, with a message naming both
 options.
 
+If you take the source-generated path, you do not have to keep the context in step by hand: a type
+your contracts serialize that the context does not register is [`RXH024`](diagnostics.md#rxh024) at
+build time. See [Native AOT & trimming](aot.md) for what it covers and the two cases it stays quiet
+about.
+
 ## System.Text.Json
 
 `SystemTextJsonContentSerializer` serializes through `JsonTypeInfo` rather than the reflection-based

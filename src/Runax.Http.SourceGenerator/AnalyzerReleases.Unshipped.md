@@ -22,3 +22,4 @@ RXH020  | Runax.Http | Warning  | This [Retry] will not retry anything
 RXH021  | Runax.Http | Error    | [Retry] needs at least one attempt
 RXH022  | Runax.Http | Error    | This parameter type cannot be sent as a query value
 RXH023  | Runax.Http | Error    | A query object property cannot be sent
+RXH024  | Runax.Http | Warning  | This type is not in any JsonSerializerContext

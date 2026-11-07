@@ -17,6 +17,7 @@ New to it? Read the [root README](../README.md) for the pitch, then
 | [Capabilities](capabilities.md) | What HTTP libraries disagree about, how a request's requirements are derived, and the rule that a transport may throw or degrade but never pretend |
 | [Retries](retries.md) | Turning them on, the backoff curve, `Retry-After`, and the three defaults that are safety decisions rather than taste |
 | [The request pipeline](pipeline.md) | Logging, authentication and correlation as transport-agnostic middleware; where it sits relative to retries, and what the logging stage refuses to write |
+| [Observability](observability.md) | Spans and metrics under the OpenTelemetry HTTP semantic conventions, one span per attempt, the transport as a tag, and why the package takes no dependency on OpenTelemetry |
 | [Serialization](serialization.md) | `IContentSerializer`, why no serializer is registered by default, source-generated JSON, per-client overrides |
 | [Testing](testing.md) | `Runax.Http.TestKit`: a recording transport and a harness that stands up a real client without a socket, so you can assert on the request it built |
 | [Configuration](configuration.md) | Every option on both builders, ordering guarantees, reading from `IConfiguration`, and using the runtime without a container |
@@ -42,6 +43,5 @@ New to it? Read the [root README](../README.md) for the pitch, then
 ## Not written yet
 
 Pages arrive with the features they describe, so there is nothing here that documents something you
-cannot use. Still to come, tracked on the [roadmap](../ROADMAP.md):
-
-- **Observability** — waiting on the tracing and metrics work
+cannot use. Everything currently shipped has a page; what is still to come is tracked on the
+[roadmap](../ROADMAP.md).

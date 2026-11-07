@@ -62,6 +62,10 @@ var pipelineLog = new List<string>();
 
 services.AddRunaxClient<IThingClient>()
     .WithBaseAddress("https://api.example.com/v1")
+    // Telemetry included because the stage is the one that touches ActivitySource and Meter, and
+    // "AOT-safe" is a claim only a publish can check — neither type needs reflection, but a trim
+    // warning here would be invisible in a JIT build.
+    .UseTelemetry()
     .UseCorrelation()
     .UseBearerToken(() => "aot-token")
     .Use(new AotRecordingMiddleware(pipelineLog));

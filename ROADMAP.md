@@ -30,6 +30,11 @@ Ordered by what each item unblocks rather than by effort. Nothing here is a comm
   any trim or AOT warning and then runs the binary.
 - [x] **Per-package READMEs and docs** — one documentation page per concept, one README per
   shipped package.
+- [x] **Observability** — tracing and metrics on the pipeline under the OpenTelemetry HTTP client
+  semantic conventions, with the active transport as a tag. One span per *attempt*, so a retried
+  call is distinguishable from a slow one. Emits to `ActivitySource` and `Meter` in the base
+  library, so the package takes no dependency on OpenTelemetry and stays inert until something
+  subscribes. Outermost stage, because the correlation id below it is derived from the span.
 
 ## Backlog
 
@@ -40,8 +45,6 @@ Ordered by what each item unblocks rather than by effort. Nothing here is a comm
   transport rather than smoothed over.
 - [ ] **OpenAPI to interface** — generate the annotated interface from an OpenAPI document,
   so the hand-written interface is a starting point rather than the only option.
-- [ ] **Observability** — OpenTelemetry-ready tracing and metrics on the pipeline, with the
-  active transport as a tag.
 - [ ] **Benchmarks (BenchmarkDotNet)** — guard per-call overhead and allocations against
   regressions, and quantify the cost of each transport.
 - [ ] **Runtime proxy fallback** — a `DispatchProxy`-based path for interfaces that aren't

@@ -1,6 +1,6 @@
 # The request pipeline
 
-Logging, authentication and correlation, as middleware that works on every transport.
+Logging, authentication, correlation and telemetry, as middleware that works on every transport.
 
 `DelegatingHandler` is the obvious place to put all three, and it only exists in `HttpClient`-land —
 so anything built on it cannot be reused for RestSharp or anything else. This is the replacement,
@@ -13,6 +13,7 @@ Each stage is independently opt-in:
 
 ```csharp
 services.AddRunaxClient<IRepositoryClient>()
+        .UseTelemetry()
         .UseCorrelation()
         .UseLogging()
         .UseBearerToken(() => tokenCache.Current)
@@ -53,7 +54,8 @@ Explicit, from `IHttpMiddleware.Order`. Lower runs first, meaning further from t
 
 | Stage | Order | Why there |
 | --- | --- | --- |
-| Correlation | 100 | Outermost, so every stage inside — and every log line — sees the same id |
+| Telemetry | 50 | Outermost. Its span has to enclose the time the other stages spend, and the correlation stage below reads the span as `Activity.Current` — reverse the two and the `traceparent` the server receives names a span that does not exist |
+| Correlation | 100 | Inside telemetry, so its id can come from the span; outside everything else, so every stage and every log line sees the same id |
 | Logging | 200 | Inside correlation so it can report the id; outside auth so its elapsed time includes fetching a token, which is latency the caller really experiences |
 | Authentication | 300 | Innermost, so the token is attached as late as possible |
 
@@ -195,6 +197,8 @@ Three things to know:
 
 ## Next
 
+- [Observability](observability.md) — the telemetry stage in detail: attributes, metrics, and why
+  there is a span per attempt
 - [Retries](retries.md) — what the pipeline runs inside
 - [Capabilities](capabilities.md) — why a stage may only touch headers
 - [Architecture](architecture.md) — the boundary all of this sits above

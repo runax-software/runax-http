@@ -195,6 +195,18 @@ internal sealed class RunaxClientBuilder<TContract> : IRunaxClientBuilder<TContr
     }
 
     /// <inheritdoc />
+    public IRunaxClientBuilder<TContract> UseTelemetry(Action<TelemetryOptions>? configure = null)
+    {
+        var options = new TelemetryOptions();
+        configure?.Invoke(options);
+
+        // The contract name is taken here rather than read off the request at run time, because
+        // this is the one place that knows it: ClientRequest carries what the method asked for, not
+        // which interface declared it.
+        return Use(new TelemetryMiddleware(options, typeof(TContract).Name));
+    }
+
+    /// <inheritdoc />
     public IRunaxClientBuilder<TContract> UseCorrelation(Action<CorrelationOptions>? configure = null)
     {
         var options = new CorrelationOptions();

@@ -6,10 +6,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 All packages in the repository are versioned together.
 
-## [Unreleased]
+## [1.1.0] - 2026-11-07
 
 ### Added
 
+- **Observability** — `UseTelemetry()`, a pipeline stage that records a span and a request-duration
+  measurement per request, under the OpenTelemetry HTTP client semantic conventions.
+  - **No dependency on OpenTelemetry**, and there will not be one. Spans go to
+    `System.Diagnostics.Activity` and measurements to a `System.Diagnostics.Metrics.Meter`, both in
+    the base class library and both the vendor-neutral seam collectors already subscribe to. Taking
+    the SDK as a dependency would impose it on every consumer, including the ones exporting
+    somewhere else or nowhere. `RunaxHttpTelemetry.ActivitySourceName` and `MeterName` are the
+    constants to hand `AddSource` / `AddMeter`.
+  - **One span per attempt, not per call.** What the conventions describe — a resend carries
+    `http.request.resend_count` — and the only shape that separates a call that took four seconds
+    because the server was slow from one that took four seconds because two tries failed and the
+    backoff was waited out. A single span reports four seconds for both.
+  - Conventional attribute names throughout (`http.request.method`, `url.full`, `url.template`,
+    `server.address`, `http.response.status_code`, `error.type`), because conformance is the
+    feature: a dashboard built for `HttpClient` keeps working, and `http.method` instead of
+    `http.request.method` is indistinguishable from no instrumentation to anything consuming it.
+    The transport is the one addition, namespaced as `runax.http.transport`.
+  - Span named `{method} {url.template}` and never with the URL in it: a name carrying an id is one
+    operation per id, and a backend grouping by name ends up with a million groups of one. The
+    template comes from the contract rather than being parsed back out of a filled-in URL.
+  - `http.client.request.duration`, a histogram **in seconds** as the convention specifies — a unit
+    that differs from every other HTTP duration in the same backend cannot be compared with them.
+    Tagged with low-cardinality attributes only: `url.full` and the correlation id are deliberately
+    absent, since each distinct id in a path would become its own time series. A failed call is
+    still measured, because a p99 that improves when slow calls start failing instead of completing
+    is a graph that lies by omission.
+  - **Outermost stage** (`Order` 50, outside correlation's 100), and that ordering is a correctness
+    constraint rather than a preference: the correlation stage derives its id from
+    `Activity.Current`, so starting the span after it would leave the `traceparent` reaching the
+    server naming a span that does not exist — breaking the join between client and server traces
+    silently, since both halves look fine alone. It also means the span encloses the time the other
+    stages spend, including an auth stage fetching a token off a cold cache.
+  - Credentials in a URL are stripped from `url.full` unconditionally, not as an option: the
+    conventions require it, and a password in a span attribute is a password in a tracing backend's
+    search index. The query string is included by default, matching what the logging stage does with
+    the same information; `RecordQueryString = false` for an API that puts a key there. Bodies are
+    never recorded.
+  - Inert until something subscribes — `StartActivity` returns `null` with no listener and the
+    histogram skips an unsubscribed measurement — so this is safe to leave on in a library whose
+    consumers may have no collector. Tracing and metrics are separately disableable, since a span is
+    cheap to emit and expensive to store and a histogram is the reverse.
+  - AOT-safe with nothing to configure; the AOT smoke test publishes with the stage attached.
 - **`WithTotalTimeout`** — a budget for the whole call, retries and the waits between them
   included. `Timeout` bounds a single *attempt*, which reads like a call budget and is not one: the
   transport request carrying it is built once, before the retry loop, so every attempt gets the
@@ -377,5 +419,6 @@ All packages in the repository are versioned together.
 - Community health files: contributing guide, code of conduct, security policy, issue and pull
   request templates, CODEOWNERS and Dependabot.
 
-[Unreleased]: https://github.com/runax-software/runax-http/compare/v1.0.0...main
+[Unreleased]: https://github.com/runax-software/runax-http/compare/v1.1.0...main
+[1.1.0]: https://github.com/runax-software/runax-http/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/runax-software/runax-http/releases/tag/v1.0.0

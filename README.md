@@ -39,10 +39,11 @@ public interface IRepositoryClient
 ```
 
 A source generator emits the implementation at compile time — no reflection, no proxy types,
-trimming- and AOT-safe. Mistakes are build errors rather than 3am production errors: eighteen
-diagnostics cover a `{placeholder}` with no matching parameter, two `[Body]` parameters, an
-unbindable parameter, a synchronous return type, a non-absolute `[BaseAddress]`, and more — each
-with a location and a sentence saying what to do.
+trimming- and AOT-safe. Mistakes are build errors rather than 3am production errors: a
+`{placeholder}` with no matching parameter, two `[Body]` parameters, an unbindable parameter, a
+synchronous return type, a non-absolute `[BaseAddress]`, a query type that cannot be sent, a
+response type missing from your JSON context — each with a location and a sentence saying what to
+do. The full set is in [docs/diagnostics.md](docs/diagnostics.md).
 
 A parameter with no attribute binds to a path placeholder of the same name. Anything else is an
 error, because guessing that an unbound parameter "must be a query parameter" is how a secret ends

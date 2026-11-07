@@ -41,6 +41,33 @@ All packages in the repository are versioned together.
   — the one query shape whose keys are not known until run time, and so the one resolved there.
 - Two new diagnostics. `RXH022` rejects a `[Query]` type the runtime cannot turn into text;
   `RXH023` names the property of an otherwise-expandable object that cannot be sent.
+- **`RXH024` catches a type missing from your `JsonSerializerContext`**, closing the last sharp edge
+  in the AOT story. The generator already knows every type your contracts send and receive, so you
+  no longer have to keep the context in step by hand: a missing registration is a build warning
+  naming the type, the method, the exact `[JsonSerializable]` line and the context to add it to.
+  Previously it surfaced as a resolver error on the first call that needed it, in a deployed
+  trimmed application, a long way from the registration nobody updated.
+  - Covers `[Body]` parameters that reach the serializer, `Task<T>`, `Task<ApiResponse<T>>` and
+    every `[Response]` type — including the *collection* type for `Task<IReadOnlyList<T>>`, since
+    registering `T` does not cover `IReadOnlyList<T>`. That is the easiest gap to miss by hand.
+  - Stays quiet when the compilation has no context at all, because then you are on the
+    reflection-based serializer, which is a supported choice that already carries its own warning.
+  - Two deliberate blind spots, both to avoid warning when nothing is wrong: bare primitives and
+    `string` are never reported, since they resolve for free whenever any registered type has a
+    property of that type; and a type registered by *any* context counts, since nothing at compile
+    time can tell which context is wired to which client.
+  - A warning rather than an error, because a mixed setup — one client on a source-generated
+    context, another deliberately on the reflection-based serializer — is legitimate and would
+    otherwise fail a build with no recourse but suppression. Under warnings-as-errors it fails the
+    build anyway.
+  - **The context itself cannot be generated**, and the reason is recorded in `docs/aot.md` so
+    nobody tries again. Roslyn output registered with `RegisterPostInitializationOutput` joins the
+    compilation every generator sees, so a `JsonSerializerContext` emitted that way *is* populated
+    by System.Text.Json's generator — verified. Output registered with `RegisterSourceOutput` is
+    not: the other generator never sees it and the partial fails with `CS0534`. The type set can
+    only come from analysing the contracts, which means `RegisterSourceOutput`, so emission is
+    impossible rather than merely awkward.
+
 - **`[Retry]` on a method**, for the one flaky endpoint on an otherwise healthy API. Surfaces an
   attempt count, `DelayMilliseconds` (milliseconds because a `TimeSpan` cannot be an attribute
   argument) and `AllowNonIdempotent`. It refines the client's registered settings rather than

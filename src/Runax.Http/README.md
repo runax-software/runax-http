@@ -278,11 +278,12 @@ eventually be used. Full reasoning in
 
 ## What the generator catches
 
-Twenty diagnostics: a `{placeholder}` with no parameter, two `[Body]` parameters, an unbindable
-parameter, a synchronous return type, a generic interface or method, a `[BaseAddress]` that isn't
-absolute, two parameters bound to one placeholder, a body parameter typed wrong for its format, a
-`[Retry]` that cannot retry anything. Every one is a build error — or a warning where the code is
-legal but almost certainly not what you meant — with a location and a sentence saying what to do.
+Twenty-three diagnostics: a `{placeholder}` with no parameter, two `[Body]` parameters, an
+unbindable parameter, a synchronous return type, a generic interface or method, a `[BaseAddress]`
+that isn't absolute, two parameters bound to one placeholder, a body or query parameter typed wrong
+for how it is sent, a `[Retry]` that cannot retry anything, a serialized type missing from your
+`JsonSerializerContext`. Every one is a build error — or a warning where the code is legal but
+almost certainly not what you meant — with a location and a sentence saying what to do.
 
 That list is the reason to prefer a generator over a runtime proxy. A reflection-based client finds
 these on the first call that reaches them, in whatever environment gets there first.
@@ -306,6 +307,12 @@ services.AddRunaxHttp().UseSystemTextJson();
 
 `AddRunaxHttp()` deliberately registers **no** serializer by default. Silently picking the
 reflection-based one would opt every application out of AOT without saying so.
+
+If you use a source-generated context, you do not have to keep it in step by hand. A type your
+contracts serialize that the context does not register is a build warning naming the type, the
+method, the exact `[JsonSerializable]` line and the context to add it to — including the collection
+type for `Task<IReadOnlyList<T>>`, which registering `T` does not cover. It stays quiet when there
+is no context at all, so the reflection path is not nagged.
 
 ## Two invariants worth knowing
 

@@ -40,6 +40,7 @@ removal added `RXH019` rather than repurposing the number.
 | [RXH021](#rxh021) | Error | A `[Retry]` with fewer than one attempt |
 | [RXH022](#rxh022) | Error | A `[Query]` type that cannot be sent |
 | [RXH023](#rxh023) | Error | A query object property that cannot be sent |
+| [RXH024](#rxh024) | **Warning** | A serialized type missing from every `JsonSerializerContext` |
 
 ---
 
@@ -347,6 +348,45 @@ flattening would have to guess, which is the thing [`RXH022`](#rxh022) exists to
 
 **Fix:** flatten the type, pass the inner object as its own `[Query]` parameter, or drop the
 property.
+
+### RXH024
+
+**This type is not in any `JsonSerializerContext`.** *(warning)*
+
+```csharp
+[JsonSerializable(typeof(Repository))]
+internal sealed partial class ApiJsonContext : JsonSerializerContext;
+
+[Get("/repos/{owner}/{name}/issues")]
+Task<IReadOnlyList<Issue>> ListIssuesAsync(string owner, string name);   // ⚠ IReadOnlyList<Issue>
+```
+
+Under trimming or native AOT a type the context does not register fails at run time, on the first
+call that needs it, with a resolver error — in a deployed application, a long way from the
+registration someone forgot to update. The generator already knows every type your contracts send
+and receive, so it can tell you now instead.
+
+The message names the type, the method, the exact attribute line to add, and which context to add
+it to.
+
+Note the example: registering `Repository` does **not** cover `IReadOnlyList<Repository>`.
+Collections need their own registration, and that is the easiest coverage gap to miss by hand.
+
+**Only fires when the compilation has at least one `JsonSerializerContext`.** With none, you are on
+the reflection-based serializer — a supported choice that carries its own trimming warning — and
+this stays quiet.
+
+Two deliberate blind spots, both to avoid warning when nothing is wrong:
+
+- **Bare primitives and `string`** are never reported. They resolve for free whenever any
+  registered type has a property of that type, which in a real context is close enough to always.
+- **Any context counts.** Nothing at compile time can tell which context is wired to which client,
+  and several may be, so a type registered anywhere is treated as covered.
+
+A warning rather than an error, because a mixed setup — one client on a source-generated context,
+another deliberately on the reflection-based serializer — is legitimate and would otherwise fail a
+build with no recourse but suppression. In this repository, and anywhere else with
+warnings-as-errors, it fails the build anyway.
 
 ## Suppressing
 

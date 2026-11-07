@@ -71,8 +71,32 @@ services.AddRunaxClient<IRepositoryClient>();
 ```
 
 Every type a client sends or receives needs a `[JsonSerializable]` entry — including the types
-behind each `[Response]`. A missing one fails with a message naming the type and saying the context
-needs extending, rather than a generic resolver error.
+behind each `[Response]`, and the *collection* type for a method returning
+`Task<IReadOnlyList<T>>`, since registering `T` does not cover `IReadOnlyList<T>`.
+
+**You will not be the one tracking that.** The generator knows the complete set, so a type missing
+from your context is [`RXH024`](diagnostics.md#rxh024) at build time — naming the type, the method,
+the exact attribute line, and the context to add it to. Previously a forgotten entry surfaced as a
+resolver error on the first call that needed it, in a deployed application, a long way from the
+registration nobody updated.
+
+It only fires when the compilation has a `JsonSerializerContext` at all, so staying on the
+reflection-based serializer does not produce a stream of advice you did not ask for.
+
+### Why the context is not generated for you
+
+The obvious next step would be for the generator to *write* the context, since it knows the types.
+It cannot, and the reason is worth recording so nobody tries again.
+
+Output registered with Roslyn's `RegisterPostInitializationOutput` joins the compilation every
+generator sees, so a `JsonSerializerContext` emitted that way **is** picked up and populated by
+System.Text.Json's generator. Output registered with `RegisterSourceOutput` is not — the other
+generator never sees it, and the emitted partial fails with `CS0534` for the abstract members
+nobody implemented.
+
+The type set can only come from analysing your contracts, which means `RegisterSourceOutput`. So
+emission is not awkward, it is impossible; the diagnostic is the reachable 80%, and it closes the
+part that actually hurt.
 
 ## How it is verified
 

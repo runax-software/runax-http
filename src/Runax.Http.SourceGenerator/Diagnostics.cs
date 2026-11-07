@@ -151,6 +151,13 @@ internal static class Diagnostics
         "'{0}' on '{1}' is a query object, but its property '{2}' is typed '{3}', which cannot be "
         + "sent in a query string. {4}");
 
+    internal static readonly DiagnosticDescriptor UncoveredSerializedType = Warning(
+        "RXH024",
+        "This type is not in any JsonSerializerContext",
+        "'{0}' sends or receives '{1}', which no JsonSerializerContext in this project registers. "
+        + "Under trimming or native AOT that fails at run time on the first call that needs it. Add "
+        + "{2} to {3}.");
+
     private static DiagnosticDescriptor Error(string id, string title, string format)
         => new(id, title, format, Category, DiagnosticSeverity.Error, isEnabledByDefault: true);
 

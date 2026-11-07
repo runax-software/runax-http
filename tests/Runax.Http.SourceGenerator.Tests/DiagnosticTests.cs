@@ -446,6 +446,121 @@ public class DiagnosticTests
     }
 
     [Fact]
+    public void A_retry_on_an_idempotent_method_is_accepted()
+    {
+        var run = GeneratorHarness.RunContract("""
+            [BaseAddress("https://api.example.com")]
+            public interface IGood
+            {
+                [Get("/reports/{id}")]
+                [Retry(5, DelayMilliseconds = 250)]
+                Task<Thing> GetAsync(int id);
+            }
+            """);
+
+        run.Ids.ShouldBeEmpty();
+        run.AllSource.ShouldContain("RetryOverride(5, 250, false)");
+    }
+
+    [Fact]
+    public void A_retry_of_one_attempt_is_meaningful_rather_than_a_mistake()
+    {
+        // It exempts this method from a client-wide retry policy, which is a real thing to want.
+        var run = GeneratorHarness.RunContract("""
+            [BaseAddress("https://api.example.com")]
+            public interface IGood
+            {
+                [Delete("/things/{id}")]
+                [Retry(1)]
+                Task DeleteAsync(int id);
+            }
+            """);
+
+        run.Ids.ShouldBeEmpty();
+        run.AllSource.ShouldContain("RetryOverride(1,");
+    }
+
+    [Theory]
+    [InlineData("Post")]
+    [InlineData("Patch")]
+    public void RXH020_a_retry_on_a_non_idempotent_method_does_nothing(string verb)
+    {
+        var run = GeneratorHarness.RunContract($$"""
+            [BaseAddress("https://api.example.com")]
+            public interface IOdd
+            {
+                [{{verb}}("/things")]
+                [Retry(3)]
+                Task<Thing> SendAsync([Body] Thing thing);
+            }
+            """);
+
+        // The safety default would leave the attribute doing nothing at all, and nothing else in
+        // the build would mention it.
+        run.Ids.ShouldContain("RXH020");
+        run.Message("RXH020").ShouldContain("AllowNonIdempotent");
+
+        var warning = run.Diagnostics.First(diagnostic => diagnostic.Id == "RXH020");
+        warning.Severity.ShouldBe(Microsoft.CodeAnalysis.DiagnosticSeverity.Warning);
+
+        // A warning, so the client is still generated.
+        run.Sources.ShouldNotBeEmpty();
+    }
+
+    [Fact]
+    public void An_explicit_opt_in_on_a_non_idempotent_method_is_not_warned_about()
+    {
+        var run = GeneratorHarness.RunContract("""
+            [BaseAddress("https://api.example.com")]
+            public interface IGood
+            {
+                [Post("/things")]
+                [Retry(3, AllowNonIdempotent = true)]
+                Task<Thing> SendAsync([Body] Thing thing);
+            }
+            """);
+
+        run.Ids.ShouldBeEmpty();
+        run.AllSource.ShouldContain("RetryOverride(3, -1, true)");
+    }
+
+    [Fact]
+    public void A_single_attempt_on_a_non_idempotent_method_is_not_warned_about()
+    {
+        // [Retry(1)] asks for no retries, so the safety default is not suppressing anything.
+        var run = GeneratorHarness.RunContract("""
+            [BaseAddress("https://api.example.com")]
+            public interface IGood
+            {
+                [Post("/things")]
+                [Retry(1)]
+                Task<Thing> SendAsync([Body] Thing thing);
+            }
+            """);
+
+        run.Ids.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void RXH021_a_retry_below_one_attempt(int attempts)
+    {
+        var run = GeneratorHarness.RunContract($$"""
+            [BaseAddress("https://api.example.com")]
+            public interface IBad
+            {
+                [Get("/things")]
+                [Retry({{attempts}})]
+                Task<Thing> GetAsync();
+            }
+            """);
+
+        run.Ids.ShouldContain("RXH021");
+        run.Message("RXH021").ShouldContain("include the first");
+    }
+
+    [Fact]
     public void RXH014_is_retired()
     {
         // It refused the two body formats that are now emitted. Recorded as removed in

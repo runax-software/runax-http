@@ -36,6 +36,8 @@ removal added `RXH019` rather than repurposing the number.
 | [RXH017](#rxh017) | Error | Two `[Response]`s with the same condition |
 | [RXH018](#rxh018) | **Warning** | A `[Response]` that can never match |
 | [RXH019](#rxh019) | Error | A body parameter typed wrong for its format |
+| [RXH020](#rxh020) | **Warning** | A `[Retry]` that will not retry anything |
+| [RXH021](#rxh021) | Error | A `[Retry]` with fewer than one attempt |
 
 ---
 
@@ -270,6 +272,39 @@ names are visible.
 > retired — recorded under *Removed Rules* in
 > [`AnalyzerReleases.Unshipped.md`](../src/Runax.Http.SourceGenerator/AnalyzerReleases.Unshipped.md)
 > rather than quietly dropped, and its number is not reused for anything else.
+
+### RXH020
+
+**This `[Retry]` will not retry anything.** *(warning)*
+
+```csharp
+[Post("/things")]
+[Retry(3)]                                                    // ⚠ a POST is not idempotent
+Task<Thing> CreateAsync([Body] Thing thing);
+```
+
+Non-idempotent methods are not retried unless asked, so this attribute does nothing at all — and
+without the warning, nothing in the build would say so. A retried `POST` that timed out *after* the
+server committed it creates the thing twice, and the client cannot tell which happened.
+
+**Fix:** if the endpoint has an idempotency key or a genuinely idempotent handler, say so with
+`[Retry(3, AllowNonIdempotent = true)]`. Otherwise remove the attribute.
+
+`[Retry(1)]` on a `POST` is not warned about: it asks for no retries, so the safety default is not
+suppressing anything.
+
+### RXH021
+
+**`[Retry]` needs at least one attempt.**
+
+```csharp
+[Get("/things")] [Retry(0)] Task<Thing> GetAsync();           // ✗
+```
+
+Attempts include the first, so the lowest meaningful value is `1`.
+
+**Fix:** use `[Retry(1)]` if you meant "do not retry this method even though the client is
+configured to" — which is a real thing to want. Otherwise give it the attempt count you intended.
 
 ## Suppressing
 

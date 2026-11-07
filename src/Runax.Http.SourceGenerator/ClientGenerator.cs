@@ -237,6 +237,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
             parameters,
             ReadConstantHeaders(method),
             responses,
+            ReadRetry(method, verb, diagnostics),
             bodyFormat ?? "Json");
     }
 
@@ -562,6 +563,71 @@ public sealed class ClientGenerator : IIncrementalGenerator
         }
 
         return string.Join(" and ", parts);
+    }
+
+    /// <summary>
+    /// Reads <c>[Retry]</c> from a method, reporting the two ways it can be written uselessly.
+    /// </summary>
+    private static RetryModel? ReadRetry(
+        IMethodSymbol method,
+        string verb,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        foreach (var attribute in method.GetAttributes())
+        {
+            if (attribute.AttributeClass?.ToDisplayString() != $"{AttributesNamespace}.RetryAttribute")
+                continue;
+
+            var maxAttempts = attribute.ConstructorArguments.Length > 0
+                              && attribute.ConstructorArguments[0].Value is int declared
+                ? declared
+                : 1;
+
+            var delayMilliseconds = -1;
+            var allowNonIdempotent = false;
+
+            foreach (var named in attribute.NamedArguments)
+            {
+                switch (named.Key)
+                {
+                    case "DelayMilliseconds" when named.Value.Value is int delay:
+                        delayMilliseconds = delay;
+                        break;
+
+                    case "AllowNonIdempotent" when named.Value.Value is bool allow:
+                        allowNonIdempotent = allow;
+                        break;
+                }
+            }
+
+            if (maxAttempts < 1)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    Diagnostics.InvalidRetryAttemptCount,
+                    Location(method),
+                    method.ToDisplayString(),
+                    maxAttempts));
+
+                return null;
+            }
+
+            // Asking for retries on a POST and silently getting none is the failure this warns
+            // about: the safety default would leave the attribute doing nothing at all, and
+            // nothing else in the build would mention it.
+            if (maxAttempts > 1 && !allowNonIdempotent && verb is "Post" or "Patch")
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    Diagnostics.RetryOnNonIdempotentMethod,
+                    Location(method),
+                    method.ToDisplayString(),
+                    verb.ToUpperInvariant(),
+                    maxAttempts));
+            }
+
+            return new RetryModel(maxAttempts, delayMilliseconds, allowNonIdempotent);
+        }
+
+        return null;
     }
 
     private static AttributeData? FindRequestAttribute(IMethodSymbol method)

@@ -131,6 +131,16 @@ internal static class Emitter
         if (method.TransportName is not null)
             code.AppendLine($"{indent}    TransportName = {Literal(method.TransportName)},");
 
+        if (method.Retry is { } retry)
+        {
+            // Constructed from what the attribute said at compile time rather than read back off
+            // the attribute at run time, which is what keeps this path reflection-free.
+            code.AppendLine(
+                $"{indent}    Retry = new {Runtime}.Retry.RetryOverride("
+                + $"{retry.MaxAttempts}, {retry.DelayMilliseconds}, "
+                + $"{(retry.AllowNonIdempotent ? "true" : "false")}),");
+        }
+
         code.AppendLine($"{indent}}};");
     }
 

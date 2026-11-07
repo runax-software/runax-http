@@ -122,6 +122,23 @@ internal enum ResultShape
     ApiResult
 }
 
+/// <summary>What a method's <c>[Retry]</c> declared.</summary>
+internal sealed class RetryModel
+{
+    internal RetryModel(int maxAttempts, int delayMilliseconds, bool allowNonIdempotent)
+    {
+        MaxAttempts = maxAttempts;
+        DelayMilliseconds = delayMilliseconds;
+        AllowNonIdempotent = allowNonIdempotent;
+    }
+
+    internal int MaxAttempts { get; }
+
+    internal int DelayMilliseconds { get; }
+
+    internal bool AllowNonIdempotent { get; }
+}
+
 /// <summary>One client method.</summary>
 internal sealed class MethodModel
 {
@@ -136,6 +153,7 @@ internal sealed class MethodModel
         ImmutableArray<ParameterModel> parameters,
         ImmutableArray<KeyValuePair<string, string>> constantHeaders,
         ImmutableArray<ResponseModel> responses,
+        RetryModel? retry,
         string bodyFormat)
     {
         Name = name;
@@ -148,6 +166,7 @@ internal sealed class MethodModel
         Parameters = parameters;
         ConstantHeaders = constantHeaders;
         Responses = responses;
+        Retry = retry;
         BodyFormat = bodyFormat;
     }
 
@@ -178,6 +197,9 @@ internal sealed class MethodModel
     /// conditions hold wins.
     /// </summary>
     internal ImmutableArray<ResponseModel> Responses { get; }
+
+    /// <summary>What <c>[Retry]</c> on this method declared, if anything.</summary>
+    internal RetryModel? Retry { get; }
 
     /// <summary>The <c>BodyFormat</c> member name for the body parameter, if there is one.</summary>
     internal string BodyFormat { get; }

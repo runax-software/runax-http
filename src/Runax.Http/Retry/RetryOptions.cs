@@ -117,10 +117,67 @@ public sealed class RetryOptions
     /// </summary>
     public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
 
+    /// <summary>
+    /// Turns retrying off for this client and ignores every <see cref="RetryAttribute"/> its
+    /// methods declare.
+    /// </summary>
+    /// <remarks>
+    /// The operator's last word, set by <c>WithoutRetries()</c>. A method's <c>[Retry]</c>
+    /// otherwise refines these options and wins on attempt count, which is right when an interface
+    /// author knows an endpoint is flaky — and wrong in the middle of an incident, when whoever is
+    /// holding the pager needs a client that provably stops retrying. Distinct from
+    /// <see cref="MaxAttempts"/> of <c>1</c>, which only says "this client has no retry policy of
+    /// its own" and leaves a declaration free to supply one.
+    /// </remarks>
+    public bool Suppressed { get; set; }
+
     /// <summary>Whether retrying is on at all.</summary>
-    internal bool IsEnabled => MaxAttempts > 1;
+    internal bool IsEnabled => !Suppressed && MaxAttempts > 1;
 
     /// <summary>Whether this method may be repeated under the current settings.</summary>
     internal bool AllowsMethod(RequestMethod method)
         => RetryNonIdempotentMethods || Array.IndexOf(IdempotentMethods, method) >= 0;
+
+    /// <summary>
+    /// The settings that apply to one request, after a method's declaration refines them.
+    /// </summary>
+    /// <param name="declared">What the method declared, or <see langword="null"/>.</param>
+    /// <returns>
+    /// These options unchanged when there is nothing to apply, or a copy with the declaration
+    /// folded in.
+    /// </returns>
+    internal RetryOptions Resolve(RetryOverride? declared)
+    {
+        // Suppressed beats everything, including a declaration — that is the whole point of it.
+        if (declared is null || Suppressed)
+            return this;
+
+        var resolved = new RetryOptions
+        {
+            // Only what the declaration names is replaced. A method saying "five attempts" is not
+            // also saying anything about the backoff curve or which status codes are transient,
+            // and inventing answers for it would make the attribute unpredictable.
+            MaxAttempts = declared.MaxAttempts,
+            Delay = declared.DelayMilliseconds >= 0
+                ? TimeSpan.FromMilliseconds(declared.DelayMilliseconds)
+                : Delay,
+            RetryNonIdempotentMethods = RetryNonIdempotentMethods || declared.AllowNonIdempotent,
+            MaxDelay = MaxDelay,
+            Backoff = Backoff,
+            UseJitter = UseJitter,
+            RespectRetryAfter = RespectRetryAfter,
+            MaxRetryAfterDelay = MaxRetryAfterDelay,
+            RetryTransportFailures = RetryTransportFailures,
+            TimeProvider = TimeProvider
+        };
+
+        // Copied rather than shared: a set handed to two option objects would let a later edit to
+        // one of them silently change the other.
+        resolved.RetryableStatusCodes.Clear();
+
+        foreach (var statusCode in RetryableStatusCodes)
+            resolved.RetryableStatusCodes.Add(statusCode);
+
+        return resolved;
+    }
 }

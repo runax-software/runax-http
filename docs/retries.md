@@ -112,10 +112,71 @@ implements it, and swapping a transport does not change your retry semantics.
 anything built on it could not be reused for the other transports. See
 [Architecture](architecture.md).
 
-## Not yet
+## One flaky endpoint
 
-Per-method retry (a `[Retry]` attribute, for the one flaky endpoint on an otherwise healthy API) is
-on the [roadmap](../ROADMAP.md). Registration-level configuration covers the common case today.
+`WithRetry` is a client-wide policy. For the single endpoint that needs its own, declare it:
+
+```csharp
+[Get("/reports/{id}")]
+[Retry(5, DelayMilliseconds = 250)]
+Task<Report> GetReportAsync(int id, CancellationToken ct = default);
+```
+
+It **refines** the client's settings rather than replacing them: whatever the client was registered
+with — backoff curve, jitter, which status codes count, `Retry-After` handling — still applies, and
+only what the attribute names changes.
+
+| Property | Default | |
+| --- | --- | --- |
+| *(constructor)* | — | Total attempts including the first |
+| `DelayMilliseconds` | inherit | The base delay. Milliseconds because a `TimeSpan` cannot be an attribute argument |
+| `AllowNonIdempotent` | `false` | Whether a `POST` or `PATCH` may be retried |
+
+`[Retry(1)]` is meaningful rather than a mistake: it says *this method must not be retried* even
+though its client is configured to, which is how you exempt one dangerous call from a client-wide
+policy.
+
+A declaration also turns retrying on by itself — you do not need `WithRetry` first. If you did, the
+attribute would do nothing in the common case, since retrying is off by default.
+
+### Precedence
+
+**A method's `[Retry]` wins over the client's attempt count. `WithoutRetries()` wins over
+everything.**
+
+```csharp
+services.AddRunaxClient<IReportClient>().WithRetry(2);     // client-wide default
+// GetReportAsync still gets 5, from its own [Retry(5)]
+
+services.AddRunaxClient<IReportClient>().WithoutRetries(); // nothing retries, period
+```
+
+That is the opposite of how [`[Transport]`](transports.md#choosing-one) resolves, where
+registration wins — and the difference is the point. A transport is a *competing* claim about one
+fact: which stack sends the request. One of the two has to lose, and the operator knows the
+deployment. A retry count is a *refinement*: "how should this endpoint behave" narrows "how should
+this client behave by default", so there is no tie to break and the more specific statement simply
+applies. The same relationship already holds for a per-request
+[timeout](configuration.md) and for a method's `[Header]` over a client-wide default header.
+
+`WithoutRetries()` exists because the operator still needs the last word. A client that cannot be
+stopped from retrying is a liability in the middle of an incident. It is **not** the same as
+`WithRetry(1)`, which only says the client has no policy of its own and leaves a declaration free
+to supply one.
+
+### The safety defaults still hold
+
+A `[Retry]` is not a way around them.
+
+A **streamed body is never retried**, whatever the attribute says — the first attempt consumed the
+stream, so a second would send a truncated request.
+
+A **non-idempotent method is not retried** unless `AllowNonIdempotent = true`. That lives on the
+attribute as well as at registration because the interface author is the one who knows whether a
+given endpoint has an idempotency key; the client-wide `RetryNonIdempotentMethods` is the blunter
+instrument, opting in every method at once. A `[Retry]` on a `POST` *without* it is
+[`RXH020`](diagnostics.md#rxh020) — a warning, because the attribute would otherwise do nothing at
+all and nothing else in the build would say so.
 
 ## Next
 

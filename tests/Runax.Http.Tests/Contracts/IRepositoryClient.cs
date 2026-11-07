@@ -61,3 +61,39 @@ internal interface IRepositoryClient
         [Body(Format = BodyFormat.Raw)] string markdown,
         CancellationToken ct = default);
 }
+
+/// <summary>
+/// A client whose methods declare their own retry policy, for the precedence tests.
+/// </summary>
+/// <remarks>
+/// Separate from <see cref="IRepositoryClient"/> so the other suites are not quietly retrying: a
+/// declaration turns retrying on without the operator asking, which is the point of it and would
+/// be noise everywhere else.
+/// </remarks>
+[BaseAddress("https://api.example.com/v3")]
+internal interface IFlakyClient
+{
+    /// <summary>Declares more attempts than the client-wide default in these tests.</summary>
+    [Get("/reports/{id}")]
+    [Retry(4)]
+    Task<Repository> GetReportAsync(int id, CancellationToken ct = default);
+
+    /// <summary>Declares a base delay too, so the delay override is observable.</summary>
+    [Get("/reports/{id}/slow")]
+    [Retry(3, DelayMilliseconds = 0)]
+    Task<Repository> GetSlowReportAsync(int id, CancellationToken ct = default);
+
+    /// <summary>Exempts itself from a client-wide retry policy.</summary>
+    [Get("/reports/{id}/once")]
+    [Retry(1)]
+    Task<Repository> GetOnceAsync(int id, CancellationToken ct = default);
+
+    /// <summary>Opts a non-idempotent method in explicitly.</summary>
+    [Post("/reports")]
+    [Retry(3, AllowNonIdempotent = true)]
+    Task<Repository> CreateReportAsync([Body] NewIssue report, CancellationToken ct = default);
+
+    /// <summary>Declares nothing, so the client's own settings apply unchanged.</summary>
+    [Get("/reports")]
+    Task<Repository> ListReportsAsync(CancellationToken ct = default);
+}

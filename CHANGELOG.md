@@ -420,5 +420,5 @@ All packages in the repository are versioned together.
   request templates, CODEOWNERS and Dependabot.
 
 [Unreleased]: https://github.com/runax-software/runax-http/compare/v1.1.0...main
-[1.1.0]: https://github.com/runax-software/runax-http/compare/v1.0.0...v1.1.0
+[1.1.0]: https://github.com/runax-software/runax-http/compare/v1.1.0
 [1.0.0]: https://github.com/runax-software/runax-http/releases/tag/v1.0.0

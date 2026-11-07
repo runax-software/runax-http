@@ -23,6 +23,7 @@
        logs and NoWarn lists, so retiring one or changing its severity is a breaking change for them;
        the file is what makes that visible in review. -->
   <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
     <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
   </ItemGroup>
 

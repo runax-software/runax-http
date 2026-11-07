@@ -95,12 +95,10 @@ internal static class Diagnostics
         "'{0}' declares a {1}, which a generated client cannot implement. A client interface "
         + "describes requests, and a request is a method call.");
 
-    internal static readonly DiagnosticDescriptor UnsupportedBodyFormat = Error(
-        "RXH014",
-        "This body format is not implemented yet",
-        "'{0}' asks for BodyFormat.{1}, which the generator does not emit yet. Use BodyFormat.Json, "
-        + "or BodyFormat.Raw with a string, byte[] or Stream, and build the form or multipart body "
-        + "yourself for now. Tracked on the roadmap rather than silently sent as JSON.");
+    internal static readonly DiagnosticDescriptor UnsupportedBodyParameterType = Error(
+        "RXH019",
+        "This parameter type cannot be sent in that body format",
+        "'{0}' on '{1}' is typed '{2}', which BodyFormat.{3} cannot send. {4}");
 
     internal static readonly DiagnosticDescriptor ResponseNeedsApiResult = Error(
         "RXH015",

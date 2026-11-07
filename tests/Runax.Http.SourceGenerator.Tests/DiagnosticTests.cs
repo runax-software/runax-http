@@ -341,21 +341,125 @@ public class DiagnosticTests
         run.Message("RXH013").ShouldContain("event");
     }
 
-    [Theory]
-    [InlineData("UrlEncoded")]
-    [InlineData("Multipart")]
-    public void RXH014_a_body_format_that_is_not_emitted_yet(string format)
+    [Fact]
+    public void A_form_body_over_key_value_pairs_is_accepted()
     {
-        var run = GeneratorHarness.RunContract($$"""
-            public interface IBad
+        var run = GeneratorHarness.RunContract("""
+            [BaseAddress("https://api.example.com")]
+            public interface IGood
             {
                 [Post("/things")]
-                Task<Thing> SendAsync([Body(Format = BodyFormat.{{format}})] Thing thing);
+                Task<Thing> SendAsync([Body(Format = BodyFormat.UrlEncoded)] Dictionary<string, string> fields);
+
+                [Post("/other")]
+                Task<Thing> SendObjectsAsync(
+                    [Body(Format = BodyFormat.UrlEncoded)] IEnumerable<KeyValuePair<string, object?>> fields);
             }
             """);
 
-        // An error rather than silently sending JSON, which would be a request nobody asked for.
-        run.Ids.ShouldContain("RXH014");
+        run.Ids.ShouldBeEmpty();
+        run.AllSource.ShouldContain("FormBody.Create");
+    }
+
+    [Fact]
+    public void A_multipart_body_over_parts_is_accepted()
+    {
+        var run = GeneratorHarness.RunContract("""
+            [BaseAddress("https://api.example.com")]
+            public interface IGood
+            {
+                [Post("/upload")]
+                Task<Thing> UploadAsync([Body(Format = BodyFormat.Multipart)] IReadOnlyList<MultipartPart> parts);
+            }
+            """);
+
+        run.Ids.ShouldBeEmpty();
+        run.AllSource.ShouldContain("MultipartBody.Create");
+    }
+
+    [Fact]
+    public void RXH019_a_form_body_that_is_not_key_value_pairs()
+    {
+        // Mapping an object's properties to form fields would mean reflecting over the type at run
+        // time, which is the one thing this library does not do — so it is a build error rather
+        // than a trimming surprise.
+        var run = GeneratorHarness.RunContract("""
+            public interface IBad
+            {
+                [Post("/things")]
+                Task<Thing> SendAsync([Body(Format = BodyFormat.UrlEncoded)] Thing thing);
+            }
+            """);
+
+        run.Ids.ShouldContain("RXH019");
+        run.Message("RXH019").ShouldContain("key/value pairs");
+        run.Message("RXH019").ShouldContain("BodyFormat.Json");
+    }
+
+    [Fact]
+    public void RXH019_a_multipart_body_that_is_not_parts()
+    {
+        var run = GeneratorHarness.RunContract("""
+            public interface IBad
+            {
+                [Post("/upload")]
+                Task<Thing> UploadAsync([Body(Format = BodyFormat.Multipart)] Thing thing);
+            }
+            """);
+
+        run.Ids.ShouldContain("RXH019");
+        run.Message("RXH019").ShouldContain("MultipartPart");
+    }
+
+    [Theory]
+    [InlineData("string")]
+    [InlineData("byte[]")]
+    [InlineData("Stream")]
+    [InlineData("MemoryStream")]
+    public void A_raw_body_of_a_sendable_type_is_accepted(string type)
+    {
+        var run = GeneratorHarness.RunContract($$"""
+            [BaseAddress("https://api.example.com")]
+            public interface IGood
+            {
+                [Put("/raw")]
+                Task SendAsync([Body(Format = BodyFormat.Raw)] {{type}} payload);
+            }
+            """);
+
+        run.Ids.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void RXH019_a_raw_body_that_is_not_in_wire_form()
+    {
+        var run = GeneratorHarness.RunContract("""
+            public interface IBad
+            {
+                [Put("/raw")]
+                Task SendAsync([Body(Format = BodyFormat.Raw)] Thing thing);
+            }
+            """);
+
+        run.Ids.ShouldContain("RXH019");
+        run.Message("RXH019").ShouldContain("sent as written");
+    }
+
+    [Fact]
+    public void RXH014_is_retired()
+    {
+        // It refused the two body formats that are now emitted. Recorded as removed in
+        // AnalyzerReleases rather than quietly dropped, and its number is not reused.
+        var run = GeneratorHarness.RunContract("""
+            [BaseAddress("https://api.example.com")]
+            public interface IGood
+            {
+                [Post("/things")]
+                Task<Thing> SendAsync([Body(Format = BodyFormat.UrlEncoded)] Dictionary<string, string> fields);
+            }
+            """);
+
+        run.Ids.ShouldNotContain("RXH014");
     }
 
     [Fact]

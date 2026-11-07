@@ -67,3 +67,25 @@ internal interface IQuirkyClient
     [Response(200, typeof(Widget))]
     Task<ApiResult> GetStrictAsync(int id, CancellationToken ct = default);
 }
+
+/// <summary>
+/// The two body formats that are built from the argument's own shape rather than serialized.
+/// </summary>
+[BaseAddress("https://api.example.com")]
+internal interface IFormClient
+{
+    [Post("/form")]
+    Task<Widget> SubmitAsync(
+        [Body(Format = BodyFormat.UrlEncoded)] Dictionary<string, string> fields,
+        CancellationToken ct = default);
+
+    [Post("/form/typed")]
+    Task<Widget> SubmitTypedAsync(
+        [Body(Format = BodyFormat.UrlEncoded)] IEnumerable<KeyValuePair<string, object?>> fields,
+        CancellationToken ct = default);
+
+    [Post("/upload")]
+    Task<Widget> UploadAsync(
+        [Body(Format = BodyFormat.Multipart)] IReadOnlyList<Runax.Http.Transports.MultipartPart> parts,
+        CancellationToken ct = default);
+}

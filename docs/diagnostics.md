@@ -8,9 +8,11 @@ discovers a mismatched placeholder or an unbindable parameter on the first call 
 whatever environment gets there first.
 
 The ids are tracked in
+[`AnalyzerReleases.Shipped.md`](../src/Runax.Http.SourceGenerator/AnalyzerReleases.Shipped.md) and
 [`AnalyzerReleases.Unshipped.md`](../src/Runax.Http.SourceGenerator/AnalyzerReleases.Unshipped.md),
 because they end up in your build logs and `NoWarn` lists — retiring one or changing its severity is
-a breaking change.
+a breaking change. A retired id is never reused for a different meaning, which is why `RXH014`'s
+removal added `RXH019` rather than repurposing the number.
 
 ## Reference
 
@@ -29,11 +31,11 @@ a breaking change.
 | [RXH011](#rxh011) | Error | A `[BaseAddress]` that isn't absolute |
 | [RXH012](#rxh012) | Error | Two parameters bound to one placeholder |
 | [RXH013](#rxh013) | Error | A property or event on a client interface |
-| [RXH014](#rxh014) | Error | `BodyFormat.UrlEncoded` or `.Multipart` |
 | [RXH015](#rxh015) | Error | `[Response]` without `Task<ApiResult>` |
 | [RXH016](#rxh016) | Error | `Task<ApiResult>` without `[Response]` |
 | [RXH017](#rxh017) | Error | Two `[Response]`s with the same condition |
 | [RXH018](#rxh018) | **Warning** | A `[Response]` that can never match |
+| [RXH019](#rxh019) | Error | A body parameter typed wrong for its format |
 
 ---
 
@@ -194,19 +196,6 @@ A client interface describes requests, and a request is a method call.
 
 **Fix:** configure it at registration instead — see [Configuration](configuration.md).
 
-### RXH014
-
-**This body format is not implemented yet.**
-
-```csharp
-[Post("/form")] Task SubmitAsync([Body(Format = BodyFormat.UrlEncoded)] Fields fields);   // ✗
-```
-
-An error rather than silently sending JSON. Tracked on the [roadmap](../ROADMAP.md).
-
-**Fix:** use `BodyFormat.Json`, or `BodyFormat.Raw` with a `string`, `byte[]` or `Stream` and build
-the form body yourself.
-
 ### RXH015
 
 **`[Response]` requires a `Task<ApiResult>` return type.**
@@ -251,6 +240,36 @@ declaration order rather than on anything visible at the call site.
 ```
 
 **Fix:** put the unconditional `[Response]` last. It is the fallback.
+
+### RXH019
+
+**This parameter type cannot be sent in that body format.**
+
+```csharp
+[Post("/form")]
+Task SubmitAsync([Body(Format = BodyFormat.UrlEncoded)] Widget widget);   // ✗
+```
+
+Form and multipart bodies are built from the argument's own shape rather than serialized, so the
+type has to be one the runtime can enumerate:
+
+| Format | Needs |
+| --- | --- |
+| `UrlEncoded` | a sequence of `KeyValuePair<string, …>` — a `Dictionary<string, string>`, or `IEnumerable<KeyValuePair<string, object?>>` for values that still need formatting |
+| `Multipart` | a sequence of `MultipartPart`, built at the call site |
+| `Raw` | `string`, `byte[]`, `ReadOnlyMemory<byte>` or `Stream` |
+
+Mapping an object's properties to form fields or parts would mean reflecting over the type at run
+time, which is the one thing this library does not do — so it is a build error rather than a
+trimming surprise.
+
+**Fix:** use `BodyFormat.Json`, or project the object into a dictionary at the call site where the
+names are visible.
+
+> `RXH014` previously refused `UrlEncoded` and `Multipart` outright. Both are emitted now, so it is
+> retired — recorded under *Removed Rules* in
+> [`AnalyzerReleases.Unshipped.md`](../src/Runax.Http.SourceGenerator/AnalyzerReleases.Unshipped.md)
+> rather than quietly dropped, and its number is not reused for anything else.
 
 ## Suppressing
 

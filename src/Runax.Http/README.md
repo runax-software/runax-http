@@ -212,10 +212,10 @@ them implements it. Swapping a transport does not change your retry semantics.
 
 ## What the generator catches
 
-Fourteen diagnostics, `RXH001`–`RXH014`: a `{placeholder}` with no parameter, two `[Body]`
-parameters, an unbindable parameter, a synchronous return type, a generic interface or method, a
-`[BaseAddress]` that isn't absolute, two parameters bound to one placeholder. Every one is a build
-error with a location and a sentence saying what to do.
+Eighteen diagnostics: a `{placeholder}` with no parameter, two `[Body]` parameters, an unbindable
+parameter, a synchronous return type, a generic interface or method, a `[BaseAddress]` that isn't
+absolute, two parameters bound to one placeholder, a body parameter typed wrong for its format.
+Every one is a build error with a location and a sentence saying what to do.
 
 That list is the reason to prefer a generator over a runtime proxy. A reflection-based client finds
 these on the first call that reaches them, in whatever environment gets there first.
@@ -254,8 +254,9 @@ reproduces there.
 
 ## Not implemented yet
 
-`BodyFormat.UrlEncoded` and `BodyFormat.Multipart` report `RXH014` rather than being silently sent
-as JSON. Retries, logging and auth middleware are on the [roadmap](https://github.com/runax-software/runax-http/blob/main/ROADMAP.md).
+Logging, auth and correlation middleware are on the
+[roadmap](https://github.com/runax-software/runax-http/blob/main/ROADMAP.md). Retries are built in
+— see above.
 
 ## License
 

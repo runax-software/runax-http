@@ -77,6 +77,7 @@ internal static class GeneratorHarness
         using System.Threading;
         using System.Threading.Tasks;
         using Runax.Http;
+        using Runax.Http.Transports;
 
         namespace Probe;
 

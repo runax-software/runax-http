@@ -32,7 +32,7 @@
        Raising this floor drops support for every SDK older than the version chosen. -->
   <ItemGroup Label="Source generator">
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
   </ItemGroup>
 
   <!-- Transport implementations, each in its own Runax.Http.Transports.<Name> library.

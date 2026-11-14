@@ -1,0 +1,399 @@
+# A made-up API that exercises one of everything the converter handles. The same document is
+# checked in as bookshop.json, produced from this file, and the two must convert identically.
+openapi: 3.0.3
+info:
+  title: Bookshop API
+  version: 2.1.0
+  description: A small bookshop, for testing the OpenAPI conversion.
+servers:
+  - url: https://{region}.bookshop.example.com/v2
+    variables:
+      region:
+        default: eu
+  - url: https://staging.bookshop.example.com/v2
+paths:
+  /books:
+    get:
+      operationId: listBooks
+      summary: List books
+      description: Newest first.
+      parameters:
+        - name: genre
+          in: query
+          schema:
+            $ref: '#/components/schemas/Genre'
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: tag
+          in: query
+          description: Only books carrying every one of these tags.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: published_after
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: X-Request-ID
+          in: header
+          schema:
+            type: string
+            format: uuid
+        - name: session
+          in: cookie
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A page of books.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Book'
+    post:
+      operationId: createBook
+      summary: Add a book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewBook'
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '422':
+          description: The book is not valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        5XX:
+          description: The shop is having a bad day.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          description: Anything else.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /books/search:
+    get:
+      operationId: searchBooks
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            $ref: '#/components/schemas/BookFilter'
+      responses:
+        '200':
+          description: The matches.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookPage'
+  /books/{book_id}:
+    parameters:
+      - name: book_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      operationId: getBook
+      responses:
+        '200':
+          description: The book.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '404':
+          description: There is no such book.
+    patch:
+      operationId: updateBook
+      requestBody:
+        content:
+          application/merge-patch+json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                price:
+                  type: number
+                  format: decimal
+                  nullable: true
+      responses:
+        '200':
+          description: The updated book.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+    delete:
+      operationId: deleteBook
+      deprecated: true
+      responses:
+        '204':
+          description: Deleted.
+  /books/{book_id}/cover:
+    parameters:
+      - name: book_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      summary: Upload a cover image
+      requestBody:
+        required: true
+        content:
+          image/png:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '204':
+          description: Stored.
+    get:
+      operationId: getCover
+      responses:
+        '200':
+          description: The image.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+  /orders:
+    post:
+      operationId: placeOrder
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                book_id:
+                  type: string
+                quantity:
+                  type: integer
+      responses:
+        '200':
+          description: The order.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - id
+                  - status
+                properties:
+                  id:
+                    type: string
+                  status:
+                    $ref: '#/components/schemas/OrderStatus'
+                  placed_at:
+                    type: string
+                    format: date-time
+  /imports:
+    post:
+      operationId: importCatalogue
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                dry_run:
+                  type: boolean
+      responses:
+        '202':
+          description: Accepted.
+  /authors/{id}:
+    get:
+      operationId: get-author
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: class
+          in: query
+          schema:
+            type: string
+            enum:
+              - living
+              - historical
+      responses:
+        '200':
+          description: The author.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Author'
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+    partnerKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+  schemas:
+    Genre:
+      type: string
+      description: A shelf in the shop.
+      enum:
+        - fiction
+        - non-fiction
+        - poetry
+    OrderStatus:
+      type: string
+      enum:
+        - pending
+        - shipped
+    Money:
+      type: object
+      required:
+        - amount
+        - currency
+      properties:
+        amount:
+          type: number
+          format: decimal
+        currency:
+          type: string
+    NewBook:
+      type: object
+      description: A book as submitted.
+      required:
+        - title
+        - author_ids
+      properties:
+        title:
+          type: string
+          description: The title as printed on the cover.
+        author_ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+        genre:
+          $ref: '#/components/schemas/Genre'
+        price:
+          $ref: '#/components/schemas/Money'
+        published:
+          type: string
+          format: date
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        extra: {}
+    Book:
+      description: A book in the catalogue.
+      allOf:
+        - $ref: '#/components/schemas/NewBook'
+        - type: object
+          required:
+            - id
+          properties:
+            id:
+              type: string
+              format: uuid
+              readOnly: true
+            created_at:
+              type: string
+              format: date-time
+            rating:
+              type: number
+              format: float
+              nullable: true
+            isbn:
+              type: string
+              deprecated: true
+            series:
+              type: object
+              properties:
+                name:
+                  type: string
+                position:
+                  type: integer
+    BookPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Book'
+        next:
+          type: string
+          format: uri
+          nullable: true
+        total:
+          type: integer
+    BookFilter:
+      type: object
+      properties:
+        title_contains:
+          type: string
+        min_price:
+          type: number
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/Genre'
+    Author:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        class:
+          type: string
+        works:
+          type: array
+          items:
+            $ref: '#/components/schemas/Book'
+        mentor:
+          $ref: '#/components/schemas/Author'
+    Problem:
+      type: object
+      properties:
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+    Shape:
+      oneOf:
+        - $ref: '#/components/schemas/Money'
+        - $ref: '#/components/schemas/Genre'

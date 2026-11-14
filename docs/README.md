@@ -19,6 +19,7 @@ New to it? Read the [root README](../README.md) for the pitch, then
 | [The request pipeline](pipeline.md) | Logging, authentication and correlation as transport-agnostic middleware; where it sits relative to retries, and what the logging stage refuses to write |
 | [Observability](observability.md) | Spans and metrics under the OpenTelemetry HTTP semantic conventions, one span per attempt, the transport as a tag, and why the package takes no dependency on OpenTelemetry |
 | [Serialization](serialization.md) | `IContentSerializer`, why no serializer is registered by default, source-generated JSON, per-client overrides |
+| [From an OpenAPI document](openapi.md) | `dotnet runax-http openapi`: how operations, parameters, bodies and schemas map, the JSON context, and why the output is source you edit rather than a build step |
 | [Testing](testing.md) | `Runax.Http.TestKit`: a recording transport and a harness that stands up a real client without a socket, so you can assert on the request it built |
 | [Runtime proxy fallback](runtime-proxy.md) | `AddRunaxClientWithProxyFallback<T>()` for an interface the generator never saw: what stays identical, what moves from build time to registration, and why it is opt-in |
 | [Configuration](configuration.md) | Every option on both builders, ordering guarantees, reading from `IConfiguration`, and using the runtime without a container |
@@ -40,6 +41,7 @@ New to it? Read the [root README](../README.md) for the pitch, then
 - [Runax.Http.Transports.RestSharp](../src/Runax.Http.Transports.RestSharp/README.md) — the
   RestSharp transport, and a capability table showing where it differs from `HttpClient`
 - [Runax.Http.TestKit](../src/Runax.Http.TestKit/README.md) — test support
+- [Runax.Http.OpenApi](../src/Runax.Http.OpenApi/README.md) — the OpenAPI-to-interface tool
 
 ## Not written yet
 

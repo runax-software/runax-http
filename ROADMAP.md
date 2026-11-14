@@ -13,7 +13,5 @@ Ordered by what each item unblocks rather than by effort. Nothing here is a comm
   synchronous and no longer maintained, which means sync-over-async and no mid-flight
   `CancellationToken` support; where that's the case it gets documented as a wart of that
   transport rather than smoothed over.
-- [ ] **OpenAPI to interface** — generate the annotated interface from an OpenAPI document,
-  so the hand-written interface is a starting point rather than the only option.
 - [ ] **Benchmarks (BenchmarkDotNet)** — guard per-call overhead and allocations against
   regressions, and quantify the cost of each transport.

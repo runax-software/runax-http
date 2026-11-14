@@ -10,6 +10,29 @@ All packages in the repository are versioned together.
 
 ### Added
 
+- **`Runax.Http.OpenApi`**, a `dotnet` tool that writes the annotated interface, its records and a
+  `JsonSerializerContext` from an OpenAPI document:
+  `dotnet runax-http openapi <file-or-url> --namespace Shop --output Clients/`.
+  - **Any common input.** A file or an http(s) URL; JSON or YAML, detected from the content since a
+    URL rarely has an extension; Swagger 2.0, OpenAPI 3.0 and 3.1.
+  - **A starting point, not a build step.** The output is source you commit and edit, so the tool
+    refuses to overwrite an existing file without `--force` — regenerating on every build would
+    throw away exactly the edits that make the interface yours.
+  - **Checked by the generator.** The interface is annotated as you would write it, so the existing
+    `RXH` diagnostics apply, and the JSON context lists exactly what the interface serializes, which
+    is what `RXH024` checks — ready for trimming and native AOT as generated. A fixture covering every
+    mapping is converted, compiled with the real generators under warnings-as-errors, and called
+    through the runtime in CI.
+  - **Strings for string enums**, with a class of constants: a C# enum would be sent by member name,
+    in JSON and in query strings alike, and put `Available` on the wire where the API says
+    `available`.
+  - **`--api-result`** returns `Task<ApiResult>` with a `[Response]` per documented response, for
+    APIs whose error bodies are worth reading.
+  - The command line is System.CommandLine, the parser the `dotnet` CLI is built on, so help, usage
+    errors and Ctrl+C behave like any other `dotnet` command.
+  - Microsoft.OpenApi and System.CommandLine are dependencies of the tool only; generated code
+    references Runax.Http and the base class library and nothing else.
+
 - **Runtime proxy fallback** — `AddRunaxClientWithProxyFallback<T>()`, for an interface the
   generator never saw: one in an assembly that references only `Runax.Http.Abstractions`, one
   loaded from a plugin, or one declared in a language the generator does not run for.
@@ -30,6 +53,12 @@ All packages in the repository are versioned together.
   - **Marked, not hidden.** `[RequiresUnreferencedCode]` and `[RequiresDynamicCode]` on the method,
     so calling it from a trimmed or AOT project warns at the call site. Nothing else reaches the
     reflective code, and the AOT smoke test still publishes with no warnings.
+
+### Fixed
+
+- The generator now escapes a keyword-named parameter or query-object property. Roslyn reports
+  `@class` as `class`, and the generator wrote it back that way — a syntax error in generated code
+  for an interface that was valid C#. The wire name was, and stays, `class`.
 
 ## [1.1.0] - 2026-11-07
 

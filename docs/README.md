@@ -20,6 +20,7 @@ New to it? Read the [root README](../README.md) for the pitch, then
 | [Observability](observability.md) | Spans and metrics under the OpenTelemetry HTTP semantic conventions, one span per attempt, the transport as a tag, and why the package takes no dependency on OpenTelemetry |
 | [Serialization](serialization.md) | `IContentSerializer`, why no serializer is registered by default, source-generated JSON, per-client overrides |
 | [Testing](testing.md) | `Runax.Http.TestKit`: a recording transport and a harness that stands up a real client without a socket, so you can assert on the request it built |
+| [Runtime proxy fallback](runtime-proxy.md) | `AddRunaxClientWithProxyFallback<T>()` for an interface the generator never saw: what stays identical, what moves from build time to registration, and why it is opt-in |
 | [Configuration](configuration.md) | Every option on both builders, ordering guarantees, reading from `IConfiguration`, and using the runtime without a container |
 
 ## Reference

@@ -6,6 +6,7 @@
   <Folder Name="/Tests/">
     <Project Path="tests\Runax.Http.AotSmoke\Runax.Http.AotSmoke.csproj" Type="Classic C#" />
     <Project Path="tests\Runax.Http.Tests\Runax.Http.Tests.csproj" Type="Classic C#" />
+    <Project Path="tests\Runax.Http.ProxyFallback.Tests\Runax.Http.ProxyFallback.Tests.csproj" Type="Classic C#" />
     <Project Path="tests\Runax.Http.SourceGenerator.Tests\Runax.Http.SourceGenerator.Tests.csproj" Type="Classic C#" />
     <Project Path="tests\Runax.Http.TestKit.Tests\Runax.Http.TestKit.Tests.csproj" Type="Classic C#" />
     <Project Path="tests\Runax.Http.Transports.Conformance\Runax.Http.Transports.Conformance.csproj" Type="Classic C#" />

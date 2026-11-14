@@ -6,36 +6,6 @@ TestKit — see [CHANGELOG.md](CHANGELOG.md).
 
 Ordered by what each item unblocks rather than by effort. Nothing here is a commitment to a date.
 
-## Next
-
-- [x] **Generator tests** — a `CSharpGeneratorDriver` harness, one test per diagnostic, and
-  assertions that the emitted code compiles cleanly, keeps nullable annotations, registers itself
-  and contains nothing reflective.
-- [x] **`Runax.Http.TestKit`** — a recording transport and a harness that stands up the real
-  generated client and runtime over it, so consumers assert on the request their client built
-  rather than on a mock that skips the code under test.
-- [x] **Retries** — configurable per client and off by default, above the transport boundary so
-  every transport gets the same behaviour. Exponential/linear/constant backoff with jitter,
-  `Retry-After` honoured, idempotent methods only unless asked otherwise, and never for a body
-  that cannot be replayed.
-- [x] **The rest of the pipeline** — logging, auth and correlation as transport-agnostic
-  middleware, above `IHttpTransport` for the same reason serialization and retries are. Runs
-  inside the retry loop so a refreshed token reaches the retry, with a per-call context so a
-  correlation id does not change between attempts. Ordering comes from the stage, not from
-  registration order. Bodies are never logged and header values are an allow-list.
-- [x] **Per-method retry** — a `[Retry]` attribute, for the one flaky endpoint on an otherwise
-  healthy API. Refines the client's settings and wins on attempt count; `WithoutRetries()` on the
-  client beats every declaration, so an operator keeps the last word.
-- [x] **AOT and trimming** — source-generated JSON, and an `AotSmoke` publish in CI that fails on
-  any trim or AOT warning and then runs the binary.
-- [x] **Per-package READMEs and docs** — one documentation page per concept, one README per
-  shipped package.
-- [x] **Observability** — tracing and metrics on the pipeline under the OpenTelemetry HTTP client
-  semantic conventions, with the active transport as a tag. One span per *attempt*, so a retried
-  call is distinguishable from a slow one. Emits to `ActivitySource` and `Meter` in the base
-  library, so the package takes no dependency on OpenTelemetry and stays inert until something
-  subscribes. Outermost stage, because the correlation id below it is derived from the span.
-
 ## Backlog
 
 - [ ] **More transports** — Flurl, and a transport over one of the lower-level HTTP stacks

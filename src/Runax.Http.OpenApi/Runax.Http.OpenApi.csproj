@@ -7,6 +7,9 @@
     <PackAsTool>true</PackAsTool>
     <!-- The dotnet- prefix is what lets `dotnet runax-http ...` find it, as well as `dotnet-runax-http`. -->
     <ToolCommandName>dotnet-runax-http</ToolCommandName>
+    <!-- Named after the command, because help prints the executable's name in its usage line. The
+         package keeps its own id, which Directory.Build.props sets from the project name. -->
+    <AssemblyName>dotnet-runax-http</AssemblyName>
     <RollForward>Major</RollForward>
 
     <!-- A command-line tool, never linked into an application: the trim and AOT analysers would only
@@ -17,6 +20,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.OpenApi" />
     <PackageReference Include="Microsoft.OpenApi.YamlReader" />
+    <PackageReference Include="System.CommandLine" />
   </ItemGroup>
 
   <!-- Query keys and identifiers are cased with the generator's own formatter, compiled in from the

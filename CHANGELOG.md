@@ -28,8 +28,10 @@ All packages in the repository are versioned together.
     `available`.
   - **`--api-result`** returns `Task<ApiResult>` with a `[Response]` per documented response, for
     APIs whose error bodies are worth reading.
-  - Microsoft.OpenApi is a dependency of the tool only; generated code references Runax.Http and the
-    base class library and nothing else.
+  - The command line is System.CommandLine, the parser the `dotnet` CLI is built on, so help, usage
+    errors and Ctrl+C behave like any other `dotnet` command.
+  - Microsoft.OpenApi and System.CommandLine are dependencies of the tool only; generated code
+    references Runax.Http and the base class library and nothing else.
 
 - **Runtime proxy fallback** — `AddRunaxClientWithProxyFallback<T>()`, for an interface the
   generator never saw: one in an assembly that references only `Runax.Http.Abstractions`, one

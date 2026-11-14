@@ -1,14 +1,7 @@
 using Runax.Http.OpenApi;
 
-using var cancellation = new CancellationTokenSource();
-
-Console.CancelKeyPress += (_, eventArgs) =>
-{
-    eventArgs.Cancel = true;
-    cancellation.Cancel();
-};
-
 using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
 http.DefaultRequestHeaders.UserAgent.ParseAdd("dotnet-runax-http");
 
-return await Cli.RunAsync(args, Console.Out, Console.Error, http, cancellation.Token).ConfigureAwait(false);
+// InvokeAsync owns Ctrl+C: it cancels the token every action receives and waits for it to stop.
+return await Cli.Build(http).Parse(args).InvokeAsync().ConfigureAwait(false);

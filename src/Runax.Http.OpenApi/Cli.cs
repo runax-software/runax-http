@@ -1,9 +1,12 @@
+using System.CommandLine;
+
 namespace Runax.Http.OpenApi;
 
 /// <summary>The command line: <c>dotnet runax-http openapi &lt;document&gt; [options]</c>.</summary>
 /// <remarks>
-/// Hand-rolled rather than built on a parsing library: one command and five options do not need
-/// one, and a tool's dependencies are installed on every machine that runs it.
+/// Declared with System.CommandLine, which the <c>dotnet</c> CLI is built on, so help, usage
+/// errors, response files and Ctrl+C behave the way they do for every other <c>dotnet</c> command.
+/// Each command is its symbols plus an action; adding one is adding a <see cref="Command"/>.
 /// </remarks>
 internal static class Cli
 {
@@ -11,67 +14,102 @@ internal static class Cli
     internal const int UsageError = 1;
     internal const int Failure = 2;
 
-    internal const string Usage = """
-        Generates a Runax.Http client interface, its models and a JsonSerializerContext from an OpenAPI
-        document. The files are a starting point you own and edit, not a build step.
+    /// <summary>What the <c>openapi</c> command was asked to do.</summary>
+    internal sealed record OpenApiRequest(
+        string Document,
+        string? Output,
+        string? Namespace,
+        string? Name,
+        bool ApiResult,
+        bool Force);
 
-        Usage:
-          dotnet runax-http openapi <document> [options]
+    internal static RootCommand Build(HttpClient http)
+    {
+        var document = new Argument<string>("document")
+        {
+            Description = "A file path or an http(s) URL. JSON or YAML; Swagger 2.0, OpenAPI 3.0 or 3.1."
+        };
 
-        Arguments:
-          <document>             A file path or an http(s) URL. JSON or YAML; Swagger 2.0, OpenAPI 3.0 or 3.1.
+        var output = new Option<string?>("--output", "-o")
+        {
+            Description = "Where to write the files. Default: the current directory.",
+            HelpName = "dir"
+        };
 
-        Options:
-          -o, --output <dir>     Where to write the files. Default: the current directory.
-          -n, --namespace <ns>   The namespace. Default: derived from the document's title.
-          --name <name>          The client's name: --name Petstore gives IPetstoreClient. Default: from the title.
-          --api-result           Return Task<ApiResult> with a [Response] per documented response, instead
-                                 of the success response's type.
-          --force                Overwrite files that already exist.
-          -h, --help             Show this help.
-        """;
+        var ns = new Option<string?>("--namespace", "-n")
+        {
+            Description = "The namespace. Default: the client's name.",
+            HelpName = "namespace"
+        };
 
-    internal static async Task<int> RunAsync(
+        var name = new Option<string?>("--name")
+        {
+            Description = "The client's name: --name Shop gives IShopClient. Default: from the document's title.",
+            HelpName = "name"
+        };
+
+        var apiResult = new Option<bool>("--api-result")
+        {
+            Description = "Return Task<ApiResult> with a [Response] per documented response, instead of the success response's type."
+        };
+
+        var force = new Option<bool>("--force")
+        {
+            Description = "Overwrite files that already exist. They are yours once generated, so this is never the default."
+        };
+
+        var openapi = new Command(
+            "openapi",
+            "Generate a client interface, its models and a JsonSerializerContext from an OpenAPI document. "
+            + "The files are a starting point you own and edit, not a build step.")
+        {
+            document, output, ns, name, apiResult, force
+        };
+
+        openapi.SetAction((parse, cancellationToken) => GenerateAsync(
+            new OpenApiRequest(
+                parse.GetRequiredValue(document),
+                parse.GetValue(output),
+                parse.GetValue(ns),
+                parse.GetValue(name),
+                parse.GetValue(apiResult),
+                parse.GetValue(force)),
+            parse.InvocationConfiguration.Output,
+            parse.InvocationConfiguration.Error,
+            http,
+            cancellationToken));
+
+        return new RootCommand("Tools for Runax.Http, the declarative HTTP client for .NET.") { openapi };
+    }
+
+    /// <summary>Parses and runs a command line, writing to the given writers rather than the console.</summary>
+    internal static Task<int> RunAsync(
         string[] args,
         TextWriter output,
         TextWriter error,
         HttpClient http,
         CancellationToken cancellationToken)
+        => Build(http)
+            .Parse(args)
+            .InvokeAsync(new InvocationConfiguration { Output = output, Error = error }, cancellationToken);
+
+    internal static async Task<int> GenerateAsync(
+        OpenApiRequest request,
+        TextWriter output,
+        TextWriter error,
+        HttpClient http,
+        CancellationToken cancellationToken)
     {
-        if (args.Length == 0 || args[0] is "-h" or "--help")
-        {
-            await output.WriteLineAsync(Usage).ConfigureAwait(false);
-            return args.Length == 0 ? UsageError : Success;
-        }
-
-        if (args[0] != "openapi")
-        {
-            await error.WriteLineAsync($"Unknown command '{args[0]}'.{Environment.NewLine}{Environment.NewLine}{Usage}").ConfigureAwait(false);
-            return UsageError;
-        }
-
-        if (!TryParse(args.AsSpan(1), out var parsed, out var problem))
-        {
-            await error.WriteLineAsync($"{problem}{Environment.NewLine}{Environment.NewLine}{Usage}").ConfigureAwait(false);
-            return UsageError;
-        }
-
-        if (parsed.Help)
-        {
-            await output.WriteLineAsync(Usage).ConfigureAwait(false);
-            return Success;
-        }
-
         LoadResult loaded;
 
         try
         {
-            loaded = await SpecLoader.LoadAsync(parsed.Document!, http, cancellationToken).ConfigureAwait(false);
+            loaded = await SpecLoader.LoadAsync(request.Document, http, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                               or HttpRequestException or TaskCanceledException)
         {
-            await error.WriteLineAsync($"Could not read '{parsed.Document}': {exception.Message}").ConfigureAwait(false);
+            await error.WriteLineAsync($"Could not read '{request.Document}': {exception.Message}").ConfigureAwait(false);
             return Failure;
         }
 
@@ -80,26 +118,26 @@ internal static class Cli
 
         if (loaded.Document is null)
         {
-            await error.WriteLineAsync($"'{parsed.Document}' is not an OpenAPI document that could be read.").ConfigureAwait(false);
+            await error.WriteLineAsync($"'{request.Document}' is not an OpenAPI document that could be read.").ConfigureAwait(false);
             return Failure;
         }
 
         var result = ClientGenerator.Generate(
             loaded.Document,
             new GeneratorOptions(
-                parsed.Namespace,
-                parsed.Name,
-                parsed.ApiResult,
-                parsed.Document!,
-                Uri.TryCreate(parsed.Document, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" ? uri : null));
+                request.Namespace,
+                request.Name,
+                request.ApiResult,
+                request.Document,
+                Uri.TryCreate(request.Document, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https" ? uri : null));
 
-        var directory = Path.GetFullPath(parsed.Output ?? ".");
+        var directory = Path.GetFullPath(request.Output ?? ".");
         var targets = result.Files.Select(file => (File: file, Path: Path.Combine(directory, file.Name))).ToList();
 
         // Checked for every file before writing any, so a refusal leaves nothing half-replaced.
         var existing = targets.Where(target => File.Exists(target.Path)).Select(target => target.Path).ToList();
 
-        if (existing.Count > 0 && !parsed.Force)
+        if (existing.Count > 0 && !request.Force)
         {
             await error.WriteLineAsync(
                 "These files already exist, and may have been edited since they were generated:"
@@ -128,88 +166,5 @@ internal static class Cli
         await output.WriteLineAsync($"  services.AddRunaxClient<{result.Namespace}.{result.InterfaceName}>();").ConfigureAwait(false);
 
         return Success;
-    }
-
-    internal sealed class Options
-    {
-        internal string? Document { get; set; }
-
-        internal string? Output { get; set; }
-
-        internal string? Namespace { get; set; }
-
-        internal string? Name { get; set; }
-
-        internal bool ApiResult { get; set; }
-
-        internal bool Force { get; set; }
-
-        internal bool Help { get; set; }
-    }
-
-    internal static bool TryParse(ReadOnlySpan<string> args, out Options options, out string? problem)
-    {
-        options = new Options();
-        problem = null;
-
-        for (var i = 0; i < args.Length; i++)
-        {
-            var arg = args[i];
-
-            switch (arg)
-            {
-                case "-h" or "--help":
-                    options.Help = true;
-                    return true;
-
-                case "--api-result":
-                    options.ApiResult = true;
-                    continue;
-
-                case "--force":
-                    options.Force = true;
-                    continue;
-
-                case "-o" or "--output" or "-n" or "--namespace" or "--name":
-                    if (i + 1 >= args.Length)
-                    {
-                        problem = $"{arg} needs a value.";
-                        return false;
-                    }
-
-                    var value = args[++i];
-
-                    if (arg is "-o" or "--output")
-                        options.Output = value;
-                    else if (arg is "-n" or "--namespace")
-                        options.Namespace = value;
-                    else
-                        options.Name = value;
-
-                    continue;
-            }
-
-            if (arg.StartsWith('-'))
-            {
-                problem = $"Unknown option '{arg}'.";
-                return false;
-            }
-
-            if (options.Document is not null)
-            {
-                problem = $"Only one document can be converted at a time; '{arg}' is a second.";
-                return false;
-            }
-
-            options.Document = arg;
-        }
-
-        if (options.Document is null)
-        {
-            problem = "Name the OpenAPI document to convert: a file path or a URL.";
-            return false;
-        }
-
-        return true;
     }
 }

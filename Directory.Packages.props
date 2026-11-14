@@ -48,6 +48,8 @@
   <ItemGroup Label="OpenAPI tool">
     <PackageVersion Include="Microsoft.OpenApi" Version="3.11.0" />
     <PackageVersion Include="Microsoft.OpenApi.YamlReader" Version="3.11.0" />
+    <!-- The command-line parser the dotnet CLI itself uses, so help and errors read the same. -->
+    <PackageVersion Include="System.CommandLine" Version="2.0.14" />
   </ItemGroup>
 
   <!-- Test-only. Runner is Microsoft.Testing.Platform (see global.json) + xUnit v3. -->

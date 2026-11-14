@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace Runax.Http.SourceGenerator;
@@ -302,7 +303,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
                 }
 
                 parameters.Add(new ParameterModel(
-                    parameter.Name, parameter.Name, ParameterBinding.CancellationToken, typeName));
+                    Identifier(parameter.Name), parameter.Name, ParameterBinding.CancellationToken, typeName));
 
                 continue;
             }
@@ -317,7 +318,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
                 if (placeholders.Contains(parameter.Name))
                 {
                     parameters.Add(new ParameterModel(
-                        parameter.Name, parameter.Name, ParameterBinding.Path, typeName));
+                        Identifier(parameter.Name), parameter.Name, ParameterBinding.Path, typeName));
 
                     continue;
                 }
@@ -403,7 +404,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
                 }
 
                 parameters.Add(new ParameterModel(
-                    parameter.Name,
+                    Identifier(parameter.Name),
                     wireName,
                     binding,
                     typeName,
@@ -413,7 +414,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
                 continue;
             }
 
-            parameters.Add(new ParameterModel(parameter.Name, wireName, binding, typeName));
+            parameters.Add(new ParameterModel(Identifier(parameter.Name), wireName, binding, typeName));
         }
 
         return parameters.ToImmutable();
@@ -1020,7 +1021,7 @@ public sealed class ClientGenerator : IIncrementalGenerator
             fields.Add(new QueryFieldModel(
                 ReadPropertyWireName(property)
                 ?? QueryNameFormatter.Apply(property.Name, queryNaming),
-                $"{parameter.Name}{accessor}{property.Name}"));
+                $"{Identifier(parameter.Name)}{accessor}{Identifier(property.Name)}"));
         }
 
         return fields.ToImmutable();
@@ -1284,6 +1285,14 @@ public sealed class ClientGenerator : IIncrementalGenerator
 
         return $"{stem}RunaxClient";
     }
+
+    /// <summary>
+    /// A name as it has to be written in emitted code. Roslyn reports a parameter declared
+    /// <c>@class</c> as <c>class</c>, and writing that back unescaped is a syntax error — so a
+    /// keyword gets its <c>@</c> back. The wire name is never escaped: the key is still <c>class</c>.
+    /// </summary>
+    private static string Identifier(string name)
+        => SyntaxFacts.GetKeywordKind(name) != SyntaxKind.None ? "@" + name : name;
 
     private static Location Location(ISymbol symbol)
         => symbol.Locations.FirstOrDefault() ?? Microsoft.CodeAnalysis.Location.None;

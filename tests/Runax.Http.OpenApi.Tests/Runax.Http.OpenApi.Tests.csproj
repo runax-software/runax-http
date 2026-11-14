@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Generated/ holds the tool's output for Fixtures/bookshop.yaml, checked in and compiled here
+       with the real Runax.Http generator and the System.Text.Json source generator. Warnings are
+       errors, so an RXH diagnostic, a type missing from the JSON context (RXH024), or a doc comment
+       the output gets wrong fails the build rather than a consumer's. The snapshot tests prove the
+       checked-in files are what the tool produces today. -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- The tests themselves are not documented; the generated client must be, CS1573 included. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Runax.Http/Runax.Http.csproj" />
+    <ProjectReference Include="../../src/Runax.Http.OpenApi/Runax.Http.OpenApi.csproj" />
+    <ProjectReference Include="../../src/Runax.Http.SourceGenerator/Runax.Http.SourceGenerator.csproj"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Analyzer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

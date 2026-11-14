@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Generates an annotated Runax.Http client interface, its models and a JsonSerializerContext from an OpenAPI document (Swagger 2.0, OpenAPI 3.0 or 3.1, JSON or YAML, from a file or a URL). The output is source you own and edit, not a build step.</Description>
+    <PackageTags>$(PackageTags);openapi;swagger;codegen;dotnet-tool</PackageTags>
+
+    <OutputType>Exe</OutputType>
+    <PackAsTool>true</PackAsTool>
+    <!-- The dotnet- prefix is what lets `dotnet runax-http ...` find it, as well as `dotnet-runax-http`. -->
+    <ToolCommandName>dotnet-runax-http</ToolCommandName>
+    <RollForward>Major</RollForward>
+
+    <!-- A command-line tool, never linked into an application: the trim and AOT analysers would only
+         report on the OpenAPI parser, which is not ours to change and never ships to anyone. -->
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.OpenApi" />
+    <PackageReference Include="Microsoft.OpenApi.YamlReader" />
+  </ItemGroup>
+
+  <!-- Query keys and identifiers are cased with the generator's own formatter, compiled in from the
+       same file, so a generated interface derives the keys the generator would expect. Its doc
+       comments name QueryNaming, which lives in Abstractions — deliberately not referenced here,
+       since the tool only writes text — hence CS1574. -->
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);CS1574</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="../Runax.Http.SourceGenerator/QueryNameFormatter.cs" Link="QueryNameFormatter.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Runax.Http.OpenApi.Tests" />
+  </ItemGroup>
+</Project>

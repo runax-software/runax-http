@@ -95,6 +95,7 @@ conventions, tags whichever transport answered, and takes no dependency on OpenT
 | `Runax.Http.Abstractions` | Attributes and the transport-neutral contracts. Zero dependencies — the BCL and nothing else. Reference it directly when writing a transport. |
 | `Runax.Http.Transports.RestSharp` | RestSharp transport. Passes the same conformance suite, with a different capability set. |
 | `Runax.Http.TestKit` | A recording transport and a harness: assert what your client would have sent, no sockets. |
+| `Runax.Http.OpenApi` | A `dotnet` tool: an OpenAPI document (file or URL, JSON or YAML) in, the annotated interface, its records and a JSON context out — source you own and edit. |
 
 `HttpClient` ships inside `Runax.Http` rather than as a separate transport package. The rule
 behind the split is that no package forces a third-party dependency on you — and `HttpClient`

@@ -18,9 +18,9 @@
        are netstandard2.0/net8.0-compatible and load on .NET 8 regardless, so a lower floor buys
        nothing and breaks restore the moment a transport SDK pulls something newer. -->
   <ItemGroup Label="Core">
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="11.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Options" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Options.DataAnnotations" Version="10.0.14" />
@@ -54,9 +54,9 @@
     <!-- Concrete DI container, logging, and Generic Host, used to exercise registration
          and the generated clients end-to-end in tests. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.14" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing" Version="10.8.0" />
-    <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
   </ItemGroup>
 </Project>

@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 All packages in the repository are versioned together.
 
+## [Unreleased]
+
+### Added
+
+- **Runtime proxy fallback** — `AddRunaxClientWithProxyFallback<T>()`, for an interface the
+  generator never saw: one in an assembly that references only `Runax.Http.Abstractions`, one
+  loaded from a plugin, or one declared in a language the generator does not run for.
+  - **Generated first.** When an implementation was generated it is used, exactly as
+    `AddRunaxClient<T>()` would; the proxy is only what happens when there is no alternative.
+    `AddRunaxClient<T>()` itself never falls back — its missing-implementation error now names the
+    fallback, so choosing reflection stays a deliberate act.
+  - **Same request, same runtime.** The proxy builds the `ClientRequest` a generated method would
+    and hands it to the same executor, so transports, retries, the pipeline, telemetry and response
+    mapping are one code path. The request follows the generator's rules — binding, query shapes,
+    naming (through the generator's own formatter, compiled in from the same file), body formats,
+    `[Response]` matching — and a parity suite runs every test contract through both paths and
+    requires identical requests and results.
+  - **Errors at registration.** What the generator reports as build errors is one
+    `InvalidOperationException` listing every problem under the generator's `RXH` id, so a
+    contract that cannot be implemented never reaches a request. The generator's warnings have no
+    run-time equivalent.
+  - **Marked, not hidden.** `[RequiresUnreferencedCode]` and `[RequiresDynamicCode]` on the method,
+    so calling it from a trimmed or AOT project warns at the call site. Nothing else reaches the
+    reflective code, and the AOT smoke test still publishes with no warnings.
+
 ## [1.1.0] - 2026-11-07
 
 ### Added

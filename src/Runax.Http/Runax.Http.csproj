@@ -33,6 +33,12 @@
           Visible="false" />
   </ItemGroup>
 
+  <!-- The runtime proxy names query keys with the generator's own formatter, compiled in from the same
+       file, so a key cannot be spelled differently depending on which path implemented the client. -->
+  <ItemGroup>
+    <Compile Include="../Runax.Http.SourceGenerator/QueryNameFormatter.cs" Link="Proxy/QueryNameFormatter.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Runax.Http.Tests" />
   </ItemGroup>

@@ -7,6 +7,9 @@ This list is the main argument for a generator over a runtime proxy. A reflectio
 discovers a mismatched placeholder or an unbindable parameter on the first call that reaches it, in
 whatever environment gets there first.
 
+The [runtime proxy fallback](runtime-proxy.md) applies the same rules to an interface the generator
+never saw, and reports the errors under these ids — at registration rather than at build time.
+
 The ids are tracked in
 [`AnalyzerReleases.Shipped.md`](../src/Runax.Http.SourceGenerator/AnalyzerReleases.Shipped.md) and
 [`AnalyzerReleases.Unshipped.md`](../src/Runax.Http.SourceGenerator/AnalyzerReleases.Unshipped.md),

@@ -311,6 +311,21 @@ almost certainly not what you meant — with a location and a sentence saying wh
 That list is the reason to prefer a generator over a runtime proxy. A reflection-based client finds
 these on the first call that reaches them, in whatever environment gets there first.
 
+## An interface the generator never saw
+
+A contract compiled without the generator — in an assembly referencing only
+`Runax.Http.Abstractions`, or loaded from a plugin — can still be registered, opt-in:
+
+```csharp
+services.AddRunaxClientWithProxyFallback<IRepositoryClient>();
+```
+
+It uses the generated implementation when there is one and a `DispatchProxy` reading the same
+attributes when there is not, with the same requests either way. Build errors become one exception
+at registration, under the same `RXH` ids, and the method warns under trimming and native AOT,
+which a proxy cannot support. See
+[Runtime proxy fallback](https://github.com/runax-software/runax-http/blob/main/docs/runtime-proxy.md).
+
 ## Native AOT and trimming
 
 The generated code uses no reflection, and the runtime's only reflective call is a module

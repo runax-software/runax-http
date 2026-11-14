@@ -25,6 +25,12 @@ interface dispatch and pattern matching.
 The runtime's only reflective call is `RuntimeHelpers.RunModuleConstructor`, used once per client
 registration to force a module initializer that `typeof(T)` alone would not trigger.
 
+The exception is opt-in and marked: `AddRunaxClientWithProxyFallback<T>()` implements an interface
+the generator never saw by reflection and a `DispatchProxy`, and carries
+`[RequiresUnreferencedCode]` and `[RequiresDynamicCode]` so that calling it from a trimmed or AOT
+project warns at the call site. Nothing else reaches that code. See
+[Runtime proxy fallback](runtime-proxy.md).
+
 ## The one thing that can break it: JSON
 
 Reflection-based `System.Text.Json` cannot work under trimming or native AOT. So the choice is

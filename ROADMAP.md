@@ -17,5 +17,3 @@ Ordered by what each item unblocks rather than by effort. Nothing here is a comm
   so the hand-written interface is a starting point rather than the only option.
 - [ ] **Benchmarks (BenchmarkDotNet)** — guard per-call overhead and allocations against
   regressions, and quantify the cost of each transport.
-- [ ] **Runtime proxy fallback** — a `DispatchProxy`-based path for interfaces that aren't
-  known at compile time. Not AOT-safe, so it would be opt-in and clearly marked.

@@ -46,7 +46,7 @@
        third-party parser is acceptable. JSON is built in; YamlReader adds YAML. Swagger 2.0,
        OpenAPI 3.0 and 3.1 all read into the same object model. -->
   <ItemGroup Label="OpenAPI tool">
-    <PackageVersion Include="Microsoft.OpenApi" Version="3.11.0" />
+    <PackageVersion Include="Microsoft.OpenApi" Version="3.11.1" />
     <PackageVersion Include="Microsoft.OpenApi.YamlReader" Version="3.11.0" />
     <!-- The command-line parser the dotnet CLI itself uses, so help and errors read the same. -->
     <PackageVersion Include="System.CommandLine" Version="2.0.14" />
